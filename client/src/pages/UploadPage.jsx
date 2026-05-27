@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { useNavigate } from 'react-router-dom';
-import { UploadCloud, FileText, X, Loader } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Upload, Bell, Calendar, FileText, Loader } from 'lucide-react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 
@@ -48,87 +48,134 @@ export default function UploadPage() {
     }
   };
 
+  // Static fallback history to match Figma exactly
+  const history = [
+    { file: 'Receipt_may28.Jpg', date: 'May 28 · 2:14 PM', id: 'INV-2025-109', status: 'Saved', color: 'text-[#2D7A4F]' },
+    { file: 'Invoice_techserv.Pdf', date: 'May 27 · 10:05 AM', id: 'INV-2025-108', status: 'Flagged', color: 'text-[#9B2C2C]' },
+    { file: 'Manila_receipt.Jpg', date: 'May 25 · 3:40 PM', id: 'INV-2025-107', status: 'Pending', color: 'text-[#B7791F]' },
+  ];
+
   return (
-    <div>
-      <div className="page-header">
-        <h1 className="page-title">Upload Invoice</h1>
-        <p className="page-subtitle">Upload a JPEG, PNG, WebP, or PDF invoice to extract data automatically.</p>
+    <div className="flex-1 flex flex-col min-h-screen bg-[#F8F9FA]">
+      
+      {/* ── Figma Top Action Header Bar (Full Bleed) ── */}
+      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
+        <div>
+          <span className="text-[10px] tracking-wider uppercase font-bold text-slate-400 block mb-1">
+            Documents
+          </span>
+          <h1 
+            className="text-slate-900 tracking-tight leading-none animate-fade-in"
+            style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '30px', fontWeight: 700 }}
+          >
+            Upload Invoice
+          </h1>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <div className="bg-white border border-slate-200 rounded-[10px] h-9 px-3.5 text-[12.5px] font-semibold text-slate-600 flex items-center gap-2 shadow-sm">
+            <Calendar size={14} className="text-slate-600" />
+            <span>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+          </div>
+          <Link to="/alerts" className="w-9 h-9 bg-slate-200/80 hover:bg-slate-300/80 rounded-[10px] flex items-center justify-center text-slate-600 hover:text-slate-800 transition-colors shadow-sm">
+            <Bell size={15} className="stroke-[2.2px]" />
+          </Link>
+          <Link to="/upload" className="bg-[#5A2D72] hover:bg-[#4A245C] active:bg-[#3B1D4A] text-white text-[12.5px] font-semibold rounded-[10px] h-9 px-5 flex items-center justify-center gap-2.5 shadow-[0_1px_3px_rgba(90,45,114,0.15)] transition-all cursor-pointer select-none whitespace-nowrap">
+            <Upload size={14} className="stroke-[2.5px] text-white" />
+            <span>Upload Invoice</span>
+          </Link>
+        </div>
       </div>
 
-      <div className="max-w-2xl">
-        {/* Dropzone */}
-        <div
-          {...getRootProps()}
-          id="upload-dropzone"
-          className={`card card-body flex flex-col items-center justify-center gap-4 py-16 cursor-pointer
-            border-2 border-dashed transition-colors duration-150
-            ${isDragActive ? 'border-primary-500 bg-primary-50' : 'border-surface-border hover:border-primary-400 hover:bg-slate-50'}`}
-        >
-          <input {...getInputProps()} id="upload-file-input" />
-          <UploadCloud
-            size={48}
-            className={`transition-colors duration-150 ${isDragActive ? 'text-primary-500' : 'text-slate-300'}`}
-          />
-          <div className="text-center">
-            <p className="font-medium text-slate-700">
-              {isDragActive ? 'Drop the file here…' : 'Drag & drop your invoice here'}
+      {/* ── Page Content ── */}
+      <div className="flex-1 p-8 overflow-y-auto">
+        <div className="max-w-[1000px] mx-auto space-y-8">
+          
+          {/* Title Section */}
+          <div className="px-1">
+            <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif" }} className="text-[28px] font-bold text-slate-900 tracking-tight mb-2">
+              Upload Invoice Or Receipt
+            </h2>
+            <p className="text-[14px] text-slate-400 font-medium">
+              AI-Powered OCR Extracts All Fields Automatically. Supported: JPG, PNG, PDF (Max 10 MB).
             </p>
-            <p className="text-sm text-slate-400 mt-1">or click to browse files</p>
-            <p className="text-xs text-slate-300 mt-2">JPEG · PNG · WebP · PDF — Max 10 MB</p>
           </div>
-        </div>
 
-        {/* File preview */}
-        {file && (
-          <div className="card mt-4">
-            <div className="card-body flex items-center gap-4">
-              {preview ? (
-                <img
-                  src={preview} alt="invoice preview"
-                  className="w-20 h-20 object-cover rounded-lg border border-surface-border"
-                />
-              ) : (
-                <div className="w-20 h-20 rounded-lg bg-primary-50 flex items-center justify-center">
-                  <FileText size={32} className="text-primary-400" />
+          {/* Upload Dropzone Card */}
+          <div
+            {...getRootProps()}
+            className={`bg-white border border-slate-100/90 rounded-[20px] p-16 flex flex-col items-center justify-center shadow-[0_2px_12px_rgba(0,0,0,0.02)] cursor-pointer transition-all min-h-[360px]
+              ${isDragActive ? 'border-[#5A2D72] bg-[#5A2D72]/[0.02]' : 'hover:border-[#5A2D72]/30 hover:shadow-[0_4px_20px_rgba(0,0,0,0.04)]'}`}
+          >
+            <input {...getInputProps()} />
+            
+            {file ? (
+              // Selected File State
+              <div className="flex flex-col items-center text-center animate-fade-in" onClick={e => e.stopPropagation()}>
+                {preview ? (
+                  <img src={preview} alt="preview" className="w-[100px] h-[100px] object-cover rounded-[14px] border border-slate-200 mb-5 shadow-sm" />
+                ) : (
+                  <div className="w-[100px] h-[100px] bg-slate-50 border border-slate-200 rounded-[14px] flex items-center justify-center mb-5 shadow-sm">
+                    <FileText size={38} className="text-[#5A2D72]" />
+                  </div>
+                )}
+                <h3 className="text-[18px] font-bold text-slate-800 mb-1.5">{file.name}</h3>
+                <p className="text-[13px] text-slate-500 font-medium mb-7">{(file.size / 1024).toFixed(1)} KB</p>
+                
+                <div className="flex items-center gap-3">
+                  <button onClick={(e) => { e.stopPropagation(); setFile(null); setPreview(null); }} className="px-5 h-[42px] rounded-[10px] border border-slate-200 text-[13px] font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors">
+                    Cancel
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); handleUpload(); }} disabled={loading} className="px-6 h-[42px] rounded-[10px] bg-[#5A2D72] hover:bg-[#4A245C] text-white text-[13px] font-bold shadow-[0_1px_3px_rgba(90,45,114,0.15)] transition-colors flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">
+                    {loading ? <Loader size={16} className="animate-spin" /> : <Upload size={16} className="stroke-[2.5px]" />}
+                    {loading ? 'Processing...' : 'Extract Data'}
+                  </button>
                 </div>
-              )}
-
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-slate-700 truncate">{file.name}</p>
-                <p className="text-sm text-slate-400">{(file.size / 1024).toFixed(1)} KB</p>
               </div>
+            ) : (
+              // Empty State
+              <div className="flex flex-col items-center text-center pointer-events-none">
+                <div className="w-[72px] h-[72px] bg-white border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.04)] rounded-[18px] flex items-center justify-center mb-7">
+                  <Upload size={28} className="text-[#5A2D72] stroke-[2px]" />
+                </div>
+                <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif" }} className="text-[28px] font-bold text-[#5A2D72] mb-2 tracking-tight">
+                  {isDragActive ? 'Drop invoice here' : 'Drop your invoice here'}
+                </h3>
+                <p className="text-[14.5px] font-medium text-slate-400">
+                  or <span className="text-[#5A2D72] font-bold">browse files</span> to upload
+                </p>
+              </div>
+            )}
+          </div>
 
-              <button
-                id="remove-file-btn"
-                onClick={() => { setFile(null); setPreview(null); }}
-                className="text-slate-400 hover:text-red-500 transition-colors"
-              >
-                <X size={18} />
-              </button>
+          {/* Upload History Table */}
+          <div className="bg-white border border-slate-100/90 rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+            <h2 className="text-slate-800 font-bold text-[15px] tracking-tight mb-5">Upload History</h2>
+            
+            <div className="overflow-x-auto rounded-[12px]">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[11px] font-extrabold tracking-wider text-slate-400 uppercase">
+                    <th className="pb-3.5 font-bold">FILE</th>
+                    <th className="pb-3.5 font-bold">UPLOADED</th>
+                    <th className="pb-3.5 font-bold">INVOICE</th>
+                    <th className="pb-3.5 font-bold">STATUS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100/60 text-[12.5px] font-semibold text-slate-700">
+                  {history.map((h, i) => (
+                    <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-4 font-bold text-slate-900">{h.file}</td>
+                      <td className="py-4 font-medium text-slate-500">{h.date}</td>
+                      <td className="py-4 font-medium text-slate-600">{h.id}</td>
+                      <td className={`py-4 ${h.color}`}>{h.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
-        )}
 
-        {/* Upload button */}
-        <div className="flex gap-3 mt-4">
-          <button
-            id="process-invoice-btn"
-            onClick={handleUpload}
-            disabled={!file || loading}
-            className="btn-primary btn-lg disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <Loader size={18} className="animate-spin" />
-                Processing OCR…
-              </>
-            ) : (
-              <>
-                <UploadCloud size={18} />
-                Upload & Extract
-              </>
-            )}
-          </button>
         </div>
       </div>
     </div>
