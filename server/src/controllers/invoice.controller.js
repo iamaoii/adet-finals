@@ -185,8 +185,15 @@ export const uploadInvoice = async (req, res) => {
       parsed.category,
     ]
   );
+  
+  // Run initial anomaly checks (missing fields, duplicates, high value) immediately on upload
+  await runAnomalyChecks(rows[0]);
 
-  res.status(201).json({ invoice: rows[0], parsedFields: parsed });
+  // Fetch updated invoice row with correct status (it may have transitioned to 'duplicate' or 'flagged' inside runAnomalyChecks)
+  const updatedRes = await query('SELECT * FROM invoices WHERE id = $1', [rows[0].id]);
+  const finalInvoice = updatedRes.rows[0] || rows[0];
+
+  res.status(201).json({ invoice: finalInvoice, parsedFields: parsed });
 };
 
 /* GET /api/invoices  */
