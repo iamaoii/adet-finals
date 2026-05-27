@@ -185,8 +185,15 @@ export const uploadInvoice = async (req, res) => {
       parsed.category,
     ]
   );
+  
+  // Run initial anomaly checks (missing fields, duplicates, high value) immediately on upload
+  await runAnomalyChecks(rows[0]);
 
-  res.status(201).json({ invoice: rows[0], parsedFields: parsed });
+  // Fetch updated invoice row with correct status (it may have transitioned to 'duplicate' or 'flagged' inside runAnomalyChecks)
+  const updatedRes = await query('SELECT * FROM invoices WHERE id = $1', [rows[0].id]);
+  const finalInvoice = updatedRes.rows[0] || rows[0];
+
+  res.status(201).json({ invoice: finalInvoice, parsedFields: parsed });
 };
 
 /* GET /api/invoices  */
@@ -443,8 +450,10 @@ async function runAnomalyChecks(invoice) {
   }
 
   // ── Persist alerts with full metadata ─────────────────────────────
-  // ON CONFLICT (invoice_id, type) → update the message/description in case fields changed
-  const allAlerts = [...missingFieldAlerts, ...realAnomalyAlerts];
+  // If duplicate is detected, it overrides and clears missing field warnings
+  const hasDuplicate = realAnomalyAlerts.some(a => a.type === 'duplicate');
+  const finalMissingAlerts = hasDuplicate ? [] : missingFieldAlerts;
+  const allAlerts = [...finalMissingAlerts, ...realAnomalyAlerts];
   for (const a of allAlerts) {
     await query(
       `INSERT INTO alerts (invoice_id, type, risk, type_label, message, description)
@@ -475,7 +484,6 @@ async function runAnomalyChecks(invoice) {
   // high_value   → 'flagged'
   // missing only → 'pending'
   // clean        → 'verified'
-  const hasDuplicate = realAnomalyAlerts.some(a => a.type === 'duplicate');
   const hasHighValue = realAnomalyAlerts.some(a => a.type === 'high_value');
 
   if (hasDuplicate) {
