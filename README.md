@@ -171,12 +171,18 @@ npm run dev
 | `GET` | `/monthly` | Outputs 6-month historical spending curves |
 | `GET` | `/by-supplier` | Groups and ranks expenses by supplier |
 | `GET` | `/by-status` | Computes status count distributions for charts |
+| `GET` | `/by-category` | Computes category breakdown for charts |
 
 ### ⚠️ Anomaly Management (`/api/alerts`)
 | Method | Route | Description |
 | :--- | :--- | :--- |
 | `GET` | `/` | List all active unreviewed anomalies |
 | `PATCH`| `/:id/resolve` | Mark anomaly resolved |
+
+### 🏥 System Health
+| Method | Route | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/health` | Retrieve system connection status and active timestamps |
 
 ---
 
