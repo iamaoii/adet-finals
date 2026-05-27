@@ -20,6 +20,15 @@ export async function testConnection() {
   try {
     await client.query('SELECT 1');
     console.log('✅ Connected to Supabase PostgreSQL');
+    
+    // Automatically add is_verified and verification_token to the users table
+    console.log('🔄 Checking database user schemas...');
+    await client.query(`
+      ALTER TABLE users 
+      ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS verification_token VARCHAR(6);
+    `);
+    console.log('💾 Database schema verified');
   } finally {
     client.release();
   }

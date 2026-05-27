@@ -5,6 +5,7 @@ import ProtectedLayout   from './components/ProtectedLayout';
 
 import LoginPage         from './pages/LoginPage';
 import RegisterPage      from './pages/RegisterPage';
+import VerifyPage        from './pages/VerifyPage';
 import DashboardPage     from './pages/DashboardPage';
 import UploadPage        from './pages/UploadPage';
 import OcrReviewPage     from './pages/OcrReviewPage';
@@ -26,6 +27,7 @@ export default function App() {
           {/* Public */}
           <Route path="/login"    element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/verify"   element={<VerifyPage />} />
 
           {/* Protected */}
           <Route element={<ProtectedLayout />}>

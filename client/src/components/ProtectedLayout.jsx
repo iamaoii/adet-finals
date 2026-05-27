@@ -16,9 +16,9 @@ export default function ProtectedLayout() {
   if (!user) return <Navigate to="/login" replace />;
 
   return (
-    <div className="flex min-h-screen bg-surface">
+    <div className="flex min-h-screen bg-[#F8F9FA]">
       <Sidebar />
-      <main className="flex-1 p-8 overflow-y-auto">
+      <main className="flex-1 flex flex-col overflow-y-auto">
         <Outlet />
       </main>
     </div>
