@@ -52,6 +52,9 @@ export const sendVerificationEmail = async (toEmail, code) => {
         port,
         secure,
         auth: { user, pass },
+        connectionTimeout: 5000, // 5 seconds connection timeout
+        socketTimeout: 5000,     // 5 seconds socket inactivity timeout
+        greetingTimeout: 5000,   // 5 seconds greeting timeout
       });
       await transporter.sendMail(mailOptions);
       console.log(`✉️ [SMTP] Verification email sent to ${toEmail} successfully.`);
