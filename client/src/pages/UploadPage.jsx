@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useNavigate, Link } from 'react-router-dom';
-import { Upload, Bell, Calendar, FileText, Loader } from 'lucide-react';
+import { Upload, Calendar, FileText, Loader } from 'lucide-react';
+import NotificationButton from '../components/NotificationButton';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 
@@ -77,9 +78,7 @@ export default function UploadPage() {
             <Calendar size={14} className="text-slate-600" />
             <span>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
           </div>
-          <Link to="/alerts" className="w-9 h-9 bg-slate-200/80 hover:bg-slate-300/80 rounded-[10px] flex items-center justify-center text-slate-600 hover:text-slate-800 transition-colors shadow-sm">
-            <Bell size={15} className="stroke-[2.2px]" />
-          </Link>
+          <NotificationButton />
           <Link to="/upload" className="bg-[#5A2D72] hover:bg-[#4A245C] active:bg-[#3B1D4A] text-white text-[12.5px] font-semibold rounded-[10px] h-9 px-5 flex items-center justify-center gap-2.5 shadow-[0_1px_3px_rgba(90,45,114,0.15)] transition-all cursor-pointer select-none whitespace-nowrap">
             <Upload size={14} className="stroke-[2.5px] text-white" />
             <span>Upload Invoice</span>

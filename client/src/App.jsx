@@ -14,6 +14,7 @@ import InvoiceDetailPage from './pages/InvoiceDetailPage';
 import AnalyticsPage     from './pages/AnalyticsPage';
 import AlertsPage        from './pages/AlertsPage';
 import SettingsPage      from './pages/SettingsPage';
+import SuppliersPage     from './pages/SuppliersPage';
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="/analytics"              element={<AnalyticsPage />} />
             <Route path="/alerts"                 element={<AlertsPage />} />
             <Route path="/settings"               element={<SettingsPage />} />
+            <Route path="/suppliers"              element={<SuppliersPage />} />
           </Route>
 
           {/* Fallback */}

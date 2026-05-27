@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, Link, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Upload, FileText, Users, BarChart2, Bell, LogOut, ChevronLeft, ChevronRight
 } from 'lucide-react';
@@ -132,11 +132,14 @@ export default function Sidebar() {
 
       {/* User Footer Profile & Logout (Bottom) */}
       <div className={`mt-8 pt-4 border-t border-slate-100 flex ${isExpanded ? 'items-center justify-between' : 'flex-col items-center justify-center gap-4'}`}>
-        <div className={`flex items-center gap-2.5 min-w-0 ${!isExpanded && 'justify-center'}`}>
+        <Link
+          to="/settings"
+          className={`flex items-center gap-2.5 min-w-0 rounded-[10px] transition-colors hover:bg-slate-50 py-1 ${isExpanded ? 'px-2 -ml-2' : 'justify-center'}`}
+          title={!isExpanded ? 'Settings' : undefined}
+        >
           {/* Circular initials badge */}
           <div 
             className="w-9 h-9 rounded-full border border-purple-200 bg-[#FAF5FF] text-[#5B2E7F] text-xs font-semibold flex items-center justify-center shrink-0 shadow-sm"
-            title={!isExpanded ? user?.name || 'Username' : undefined}
           >
             {getInitials()}
           </div>
@@ -145,10 +148,10 @@ export default function Sidebar() {
               className="text-[#5B2E7F] font-semibold text-[13.5px] truncate max-w-[120px] whitespace-nowrap animate-fade-in"
               title={user?.name || 'Username'}
             >
-              {user?.name || 'Username'}
+              {user?.name || 'Test User'}
             </span>
           )}
-        </div>
+        </Link>
 
         {/* Small transparent logout button */}
         <button
