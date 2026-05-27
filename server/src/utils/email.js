@@ -1,4 +1,8 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
+
+// Force Node.js to prefer IPv4 resolution to prevent ENETUNREACH errors on cloud hosts that lack IPv6 support
+dns.setDefaultResultOrder('ipv4first');
 
 /**
  * Sends a premium styled HTML verification email to the user.
