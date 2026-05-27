@@ -443,8 +443,10 @@ async function runAnomalyChecks(invoice) {
   }
 
   // ── Persist alerts with full metadata ─────────────────────────────
-  // ON CONFLICT (invoice_id, type) → update the message/description in case fields changed
-  const allAlerts = [...missingFieldAlerts, ...realAnomalyAlerts];
+  // If duplicate is detected, it overrides and clears missing field warnings
+  const hasDuplicate = realAnomalyAlerts.some(a => a.type === 'duplicate');
+  const finalMissingAlerts = hasDuplicate ? [] : missingFieldAlerts;
+  const allAlerts = [...finalMissingAlerts, ...realAnomalyAlerts];
   for (const a of allAlerts) {
     await query(
       `INSERT INTO alerts (invoice_id, type, risk, type_label, message, description)
@@ -475,7 +477,6 @@ async function runAnomalyChecks(invoice) {
   // high_value   → 'flagged'
   // missing only → 'pending'
   // clean        → 'verified'
-  const hasDuplicate = realAnomalyAlerts.some(a => a.type === 'duplicate');
   const hasHighValue = realAnomalyAlerts.some(a => a.type === 'high_value');
 
   if (hasDuplicate) {
