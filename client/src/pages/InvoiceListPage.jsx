@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, ChevronLeft, ChevronRight, Calendar, Upload, ChevronDown } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Calendar, Upload, ChevronDown, Trash2 } from 'lucide-react';
 import NotificationButton from '../components/NotificationButton';
+import toast from 'react-hot-toast';
 import api from '../lib/api';
 
 const fmt = (n) =>
@@ -32,65 +33,65 @@ const getStatusColor = (status) => {
 export default function InvoiceListPage() {
   const [invoices, setInvoices] = useState([]);
   const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   
   // Custom Dropdown State
   const [status, setStatus] = useState('All Status');
   const [category, setCategory] = useState('All Categories');
-  const [date, setDate] = useState('May 2026');
+  const [date, setDate] = useState('All Dates');
   
   const [statusOpen, setStatusOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
 
-  const limit = 8; // Match Figma rows count
+  // Custom Delete Modal State
+  const [deleteId, setDeleteId] = useState(null);
+
+  const limit = 8;
 
   const load = useCallback(() => {
+    setLoading(true);
     const params = { page, limit, ...(search && { search }) };
     api.get('/invoices', { params }).then(({ data }) => {
       setInvoices(data.invoices);
       setTotal(data.total);
-    });
+    }).catch(() => {}).finally(() => setLoading(false));
   }, [page, search]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load();
+    window.addEventListener('alerts-updated', load);
+    return () => window.removeEventListener('alerts-updated', load);
+  }, [load]);
 
-  // High-fidelity fallback data exactly matching the Figma reference
-  const fallbackInvoices = [
-    { id: '109', invoice_number: 'INV-2025-109', supplier_name: 'DBTK Supplies Co.', invoice_date: 'May 28', category: 'Supplies', total_amount: 34500, status: 'Paid' },
-    { id: '108', invoice_number: 'INV-2025-108', supplier_name: 'TechServ Corporation', invoice_date: 'May 27', category: 'Services', total_amount: 98500, status: 'Flagged' },
-    { id: '107', invoice_number: 'INV-2025-107', supplier_name: 'Manila Office Goods', invoice_date: 'May 25', category: 'Equipment', total_amount: 12800, status: 'Pending' },
-    { id: '106', invoice_number: 'INV-2025-106', supplier_name: 'Global Print Solutions', invoice_date: 'May 24', category: 'Supplies', total_amount: 8200, status: 'Paid' },
-    { id: '105', invoice_number: 'INV-2025-105', supplier_name: 'PhilStar Utilities', invoice_date: 'May 22', category: 'Utilities', total_amount: 21000, status: 'Paid' },
-    { id: '104', invoice_number: 'INV-2025-104', supplier_name: 'Apex Supplies Co.', invoice_date: 'May 20', category: 'Supplies', total_amount: 28000, status: 'Paid' },
-    { id: '089', invoice_number: 'INV-2025-089', supplier_name: 'DBTK Supplies Co.', invoice_date: 'May 10', category: 'Supplies', total_amount: 34500, status: 'Duplicate' },
-    { id: '088', invoice_number: 'INV-2025-088', supplier_name: 'Manila Office Goods', invoice_date: 'May 9', category: 'Equipment', total_amount: 15200, status: 'Paid' },
-  ];
-
-  // Client-side filtering logic for seamless live demo interactivity
-  const filteredInvoices = (invoices.length > 0 ? invoices : fallbackInvoices).filter((inv) => {
-    // 1. Search Query
-    if (search) {
-      const q = search.toLowerCase();
-      const matchNum = inv.invoice_number?.toLowerCase().includes(q);
-      const matchSup = inv.supplier_name?.toLowerCase().includes(q);
-      const matchAmt = String(inv.total_amount).includes(q);
-      if (!matchNum && !matchSup && !matchAmt) return false;
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    try {
+      await api.delete(`/invoices/${deleteId}`);
+      toast.success('Invoice deleted successfully');
+      setDeleteId(null);
+      load();
+    } catch {
+      toast.error('Failed to delete invoice');
+      setDeleteId(null);
     }
-    // 2. Status Custom Dropdown
+  };
+
+  // Client-side filtering on the already-fetched page of invoices
+  const filteredInvoices = invoices.filter((inv) => {
     if (status !== 'All Status') {
-      if (inv.status.toLowerCase() !== status.toLowerCase()) return false;
+      if ((inv.status ?? '').toLowerCase() !== status.toLowerCase()) return false;
     }
-    // 3. Category Custom Dropdown
     if (category !== 'All Categories') {
-      if (inv.category.toLowerCase() !== category.toLowerCase()) return false;
+      if ((inv.category ?? '').toLowerCase() !== category.toLowerCase()) return false;
     }
     return true;
   });
 
-  const displayTotal = invoices.length > 0 ? total : 284;
-  const pages = Math.max(1, Math.ceil(displayTotal / limit));
+  const pages = Math.max(1, Math.ceil(total / limit));
 
   // Option Configs
   const statusOptions = [
@@ -110,9 +111,10 @@ export default function InvoiceListPage() {
   ];
 
   const dateOptions = [
-    { label: 'May 2026' },
-    { label: 'April 2026' },
-    { label: 'March 2026' },
+    { label: 'All Dates' },
+    { label: 'May 2025' },
+    { label: 'April 2025' },
+    { label: 'March 2025' },
   ];
 
   return (
@@ -127,7 +129,7 @@ export default function InvoiceListPage() {
       )}
 
       {/* ── Top Header Bar ── */}
-      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0 z-10">
+      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0 relative z-50">
         <div>
           <span className="text-[10px] tracking-wider uppercase font-bold text-slate-400 block mb-1">
             Records
@@ -289,32 +291,48 @@ export default function InvoiceListPage() {
                 </tr>
               </thead>
               <tbody className="text-[13px] font-semibold text-slate-700">
-                {filteredInvoices.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-slate-400 font-medium animate-pulse">
+                      Loading invoices...
+                    </td>
+                  </tr>
+                ) : filteredInvoices.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-slate-400 font-medium animate-fade-in">
-                      No invoices match the selected filters.
+                      {invoices.length === 0 ? 'No invoices found. Upload your first invoice!' : 'No invoices match the selected filters.'}
                     </td>
                   </tr>
                 ) : filteredInvoices.map((inv) => {
-                  const dateStr = inv.invoice_date.length > 10 
-                    ? new Date(inv.invoice_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) 
-                    : inv.invoice_date;
+                  const rawDate = inv.invoice_date;
+                  const dateStr = rawDate
+                    ? new Date(rawDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    : '—';
 
                   return (
                     <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="py-4 px-4 border-b border-slate-100/80 font-bold text-slate-900">{inv.invoice_number || '—'}</td>
                       <td className="py-4 px-4 border-b border-slate-100/80 font-semibold">{inv.supplier_name || '—'}</td>
-                      <td className="py-4 px-4 border-b border-slate-100/80 font-semibold text-slate-600">{dateStr || '—'}</td>
+                      <td className="py-4 px-4 border-b border-slate-100/80 font-semibold text-slate-600">{dateStr}</td>
                       <td className={`py-4 px-4 border-b border-slate-100/80 font-bold ${getCatColor(inv.category)}`}>{inv.category || '—'}</td>
                       <td className="py-4 px-4 border-b border-slate-100/80 font-semibold text-slate-700">{fmt(inv.total_amount)}</td>
-                      <td className={`py-4 px-4 border-b border-slate-100/80 font-bold ${getStatusColor(inv.status)}`}>{inv.status}</td>
+                      <td className={`py-4 px-4 border-b border-slate-100/80 font-bold capitalize ${getStatusColor(inv.status)}`}>{inv.status}</td>
                       <td className="py-4 px-4 border-b border-slate-100/80 text-right">
-                        <Link
-                          to={`/invoices/${inv.id}`}
-                          className="font-bold text-[#2D7A4F] hover:underline"
-                        >
-                          View
-                        </Link>
+                        <div className="flex items-center justify-end gap-4">
+                          <Link
+                            to={`/invoices/${inv.id}`}
+                            className="font-bold text-[#2D7A4F] hover:underline"
+                          >
+                            View
+                          </Link>
+                          <button
+                            onClick={() => setDeleteId(inv.id)}
+                            className="text-slate-300 hover:text-red-500 transition-colors"
+                            title="Delete Invoice"
+                          >
+                            <Trash2 size={16} strokeWidth={2.5} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -326,7 +344,7 @@ export default function InvoiceListPage() {
           {/* Footer & Pagination */}
           <div className="flex items-center justify-between mt-2 px-1 relative z-10">
             <span className="text-[13px] text-slate-400 font-bold">
-              Showing {filteredInvoices.length} of {displayTotal} invoices
+              Showing {filteredInvoices.length} of {total} invoices
             </span>
             
             <div className="flex items-center gap-1.5">
@@ -338,8 +356,7 @@ export default function InvoiceListPage() {
                 <ChevronLeft size={14} strokeWidth={2.5} /> Prev
               </button>
               
-              {/* Dummy pages matching reference */}
-              {[1, 2, 3].map(num => (
+              {Array.from({ length: pages }, (_, i) => i + 1).map(num => (
                 <button
                   key={num}
                   onClick={() => setPage(num)}
@@ -363,6 +380,35 @@ export default function InvoiceListPage() {
 
         </div>
       </div>
+
+      {/* Custom Delete Modal */}
+      {deleteId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-[2px] animate-fade-in">
+          <div className="bg-white rounded-[24px] p-8 max-w-[400px] w-full mx-4 shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
+            <div className="w-12 h-12 rounded-full bg-[#FDF0EF] text-[#C0392B] flex items-center justify-center mb-5">
+              <Trash2 size={24} strokeWidth={2} />
+            </div>
+            <h3 className="text-[20px] font-extrabold text-slate-900 mb-2">Delete Invoice?</h3>
+            <p className="text-[13.5px] font-medium text-slate-500 mb-8 leading-relaxed">
+              Are you sure you want to permanently delete this invoice? This action cannot be undone and will also remove any related anomaly alerts.
+            </p>
+            <div className="flex items-center gap-3 w-full">
+              <button 
+                onClick={() => setDeleteId(null)}
+                className="flex-1 h-11 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-[13.5px] font-bold rounded-[12px] transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmDelete}
+                className="flex-1 h-11 bg-[#C0392B] hover:bg-[#A93226] text-white text-[13.5px] font-bold rounded-[12px] shadow-[0_2px_10px_rgba(192,57,43,0.2)] transition-colors"
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

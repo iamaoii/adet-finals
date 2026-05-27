@@ -11,6 +11,18 @@ export default function UploadPage() {
   const [file,    setFile]    = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+
+  const loadHistory = useCallback(() => {
+    setLoadingHistory(true);
+    api.get('/invoices', { params: { page: 1, limit: 5 } })
+      .then(({ data }) => {
+        setHistory(data.invoices || []);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingHistory(false));
+  }, []);
 
   const onDrop = useCallback((accepted) => {
     const f = accepted[0];
@@ -49,18 +61,25 @@ export default function UploadPage() {
     }
   };
 
-  // Static fallback history to match Figma exactly
-  const history = [
-    { file: 'Receipt_may28.Jpg', date: 'May 28 · 2:14 PM', id: 'INV-2025-109', status: 'Saved', color: 'text-[#2D7A4F]' },
-    { file: 'Invoice_techserv.Pdf', date: 'May 27 · 10:05 AM', id: 'INV-2025-108', status: 'Flagged', color: 'text-[#9B2C2C]' },
-    { file: 'Manila_receipt.Jpg', date: 'May 25 · 3:40 PM', id: 'INV-2025-107', status: 'Pending', color: 'text-[#B7791F]' },
-  ];
+  useState(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'paid': return 'text-[#2D7A4F]';
+      case 'flagged':
+      case 'duplicate': return 'text-[#9B2C2C]';
+      case 'pending': return 'text-[#B7791F]';
+      default: return 'text-slate-500';
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col min-h-screen bg-[#F8F9FA]">
       
       {/* ── Figma Top Action Header Bar (Full Bleed) ── */}
-      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
+      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0 relative z-50">
         <div>
           <span className="text-[10px] tracking-wider uppercase font-bold text-slate-400 block mb-1">
             Documents
@@ -155,21 +174,33 @@ export default function UploadPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 text-[11px] font-extrabold tracking-wider text-slate-400 uppercase">
-                    <th className="pb-3.5 font-bold">FILE</th>
-                    <th className="pb-3.5 font-bold">UPLOADED</th>
-                    <th className="pb-3.5 font-bold">INVOICE</th>
+                    <th className="pb-3.5 font-bold">INVOICE #</th>
+                    <th className="pb-3.5 font-bold">SUPPLIER</th>
+                    <th className="pb-3.5 font-bold">DATE</th>
                     <th className="pb-3.5 font-bold">STATUS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/60 text-[12.5px] font-semibold text-slate-700">
-                  {history.map((h, i) => (
-                    <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-4 font-bold text-slate-900">{h.file}</td>
-                      <td className="py-4 font-medium text-slate-500">{h.date}</td>
-                      <td className="py-4 font-medium text-slate-600">{h.id}</td>
-                      <td className={`py-4 ${h.color}`}>{h.status}</td>
+                  {loadingHistory ? (
+                    <tr>
+                      <td colSpan={4} className="py-4 text-center text-slate-400 animate-pulse">Loading recent uploads...</td>
                     </tr>
-                  ))}
+                  ) : history.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-4 text-center text-slate-400">No recently uploaded invoices.</td>
+                    </tr>
+                  ) : (
+                    history.map((h, i) => (
+                      <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-4 font-bold text-slate-900">{h.invoice_number || '—'}</td>
+                        <td className="py-4 font-semibold text-slate-700">{h.supplier_name || '—'}</td>
+                        <td className="py-4 font-medium text-slate-500">
+                          {h.invoice_date ? new Date(h.invoice_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                        </td>
+                        <td className={`py-4 font-bold capitalize ${getStatusColor(h.status)}`}>{h.status}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

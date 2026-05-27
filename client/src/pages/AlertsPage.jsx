@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Calendar, Upload } from 'lucide-react';
 import NotificationButton from '../components/NotificationButton';
 import toast from 'react-hot-toast';
@@ -34,6 +34,7 @@ const RISK_CONFIG = {
 };
 
 // ── Fallback Alerts matching Figma reference ───────────────────────────────
+/*
 const FALLBACK_ALERTS = [
   {
     id: '1',
@@ -80,47 +81,84 @@ const FALLBACK_ALERTS = [
     ],
   },
 ];
+*/
 
 export default function AlertsPage() {
-  const [alerts, setAlerts]     = useState([]);
-  const [resolved]               = useState(false);
+  const [alerts, setAlerts]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [resolved]             = useState(false);
+  const navigate = useNavigate();
 
   const load = useCallback(() => {
+    setLoading(true);
     api.get('/alerts', { params: { resolved } })
       .then((r) => setAlerts(r.data))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [resolved]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [load]);
 
-  const handleResolve = async (id) => {
+  const handleResolve = async (id, autoVerify = false) => {
+    // Optimistically update the UI
+    if (autoVerify) {
+      // If approving, remove it from the list
+      setAlerts(prev => prev.filter(a => a.id !== id));
+    } else {
+      // If just marking reviewed, keep it in the list but set resolved = true
+      setAlerts(prev => prev.map(a => a.id === id ? { ...a, resolved: true } : a));
+    }
+
     try {
-      await api.patch(`/alerts/${id}/resolve`);
-      toast.success('Alert marked as reviewed');
-      load();
+      await api.patch(`/alerts/${id}/resolve`, { autoVerify });
+      toast.success(autoVerify ? 'Invoice Approved' : 'Alert marked as reviewed');
+      window.dispatchEvent(new CustomEvent('alerts-updated'));
+      // No need to call load() since we optimistically updated it
     } catch {
       toast.error('Could not update alert');
+      load(); // restore original list on failure
+    }
+  };
+
+  const handleRejectInvoice = async (invoiceId) => {
+    // Optimistically remove any alerts tied to this invoice
+    setAlerts(prev => prev.filter(a => a.invoice_id !== invoiceId));
+    try {
+      await api.delete(`/invoices/${invoiceId}`);
+      toast.success('Invoice rejected and deleted');
+      window.dispatchEvent(new CustomEvent('alerts-updated'));
+      load();
+    } catch {
+      toast.error('Could not reject invoice');
     }
   };
 
   const handleMarkAll = async () => {
+    const previousAlerts = [...alerts];
+    // Optimistically mark all as resolved instead of clearing them
+    setAlerts(prev => prev.map(a => ({ ...a, resolved: true }))); 
     try {
-      await Promise.all(alerts.map(a => api.patch(`/alerts/${a.id}/resolve`)));
+      await Promise.all(previousAlerts.map(a => api.patch(`/alerts/${a.id}/resolve`, { autoVerify: false })));
       toast.success('All alerts marked as reviewed');
-      load();
+      window.dispatchEvent(new CustomEvent('alerts-updated'));
     } catch {
       toast.error('Could not update alerts');
+      setAlerts(previousAlerts); // Restore on failure
     }
   };
 
-  const activeAlerts = alerts.length > 0 ? alerts : FALLBACK_ALERTS;
-  const isFallback   = alerts.length === 0;
+  const RISK_ORDER = { high: 1, medium: 2, low: 3 };
+  const activeAlerts = [...alerts].sort(
+    (a, b) => (RISK_ORDER[a.risk] ?? 4) - (RISK_ORDER[b.risk] ?? 4)
+  );
+
 
   return (
     <div className="flex-1 flex flex-col min-h-screen bg-[#F8F9FA]">
 
       {/* ── Top Action Header Bar ── */}
-      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
+      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0 relative z-50">
         <div>
           <span className="text-[10px] tracking-wider uppercase font-bold text-slate-400 block mb-1">
             Insights
@@ -135,12 +173,12 @@ export default function AlertsPage() {
 
         <div className="flex items-center gap-3">
           <div className="bg-white border border-slate-200 rounded-[10px] h-9 px-3.5 text-[12.5px] font-semibold text-slate-600 flex items-center gap-2 shadow-sm">
-            <Calendar size={14} />
-            <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+            <Calendar size={14} className="text-slate-600" />
+            <span>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
           </div>
           <NotificationButton />
-          <Link to="/upload" className="bg-[#5A2D72] hover:bg-[#4A245C] text-white text-[12.5px] font-semibold rounded-[10px] h-9 px-5 flex items-center justify-center gap-2.5 transition-all whitespace-nowrap">
-            <Upload size={14} className="stroke-[2.5px]" />
+          <Link to="/upload" className="bg-[#5A2D72] hover:bg-[#4A245C] active:bg-[#3B1D4A] text-white text-[12.5px] font-semibold rounded-[10px] h-9 px-5 flex items-center justify-center gap-2.5 shadow-[0_1px_3px_rgba(90,45,114,0.15)] transition-all cursor-pointer select-none whitespace-nowrap">
+            <Upload size={14} className="stroke-[2.5px] text-white" />
             <span>Upload Invoice</span>
           </Link>
         </div>
@@ -163,10 +201,17 @@ export default function AlertsPage() {
       <div className="flex-1 p-8 overflow-y-auto">
         <div className="w-full max-w-[1200px] mx-auto space-y-5">
 
-          {activeAlerts.map((alert) => {
-            const isReal = !isFallback;
-            const risk   = alert.risk ?? 'medium';
-            const cfg    = RISK_CONFIG[risk] ?? RISK_CONFIG.medium;
+          {loading ? (
+            <div className="py-16 text-center text-slate-400 font-medium animate-pulse">
+              Loading alerts...
+            </div>
+          ) : activeAlerts.length === 0 ? (
+            <div className="bg-white border border-slate-100/90 rounded-[16px] px-6 py-12 text-center shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+              <p className="text-slate-400 font-semibold text-[14px]">No active anomaly alerts. Your invoices look clean!</p>
+            </div>
+          ) : activeAlerts.map((alert) => {
+            const risk = alert.risk ?? 'medium';
+            const cfg  = RISK_CONFIG[risk] ?? RISK_CONFIG.medium;
 
             return (
               <div
@@ -195,63 +240,82 @@ export default function AlertsPage() {
                   </p>
                 )}
 
-                {/* Meta Pills Row */}
-                {alert.meta && alert.meta.length > 0 && (
+                {/* Meta Pills Row — built from real DB fields for real alerts */}
+                {alert.similarity != null && (
                   <>
                     <div className="flex flex-wrap items-center gap-x-5 gap-y-2 py-3 border-t border-b border-slate-100 mb-4">
-                      {alert.meta.map((m, i) => (
-                        <span key={i} className="text-[12px]">
-                          <span className="text-slate-400 font-semibold">{m.label} </span>
-                          <span className="text-slate-800 font-bold">{m.value}</span>
+                      {alert.similarity != null && (
+                        <span className="text-[12px]">
+                          <span className="text-slate-400 font-semibold">Similarity </span>
+                          <span className="text-slate-800 font-bold">{alert.similarity}%</span>
                         </span>
-                      ))}
+                      )}
+                      {alert.supplier_name && (
+                        <span className="text-[12px]">
+                          <span className="text-slate-400 font-semibold">Supplier </span>
+                          <span className="text-slate-800 font-bold">{alert.supplier_name}</span>
+                        </span>
+                      )}
+                      {alert.total_amount && (
+                        <span className="text-[12px]">
+                          <span className="text-slate-400 font-semibold">Amount </span>
+                          <span className="text-slate-800 font-bold">₱{parseFloat(alert.total_amount).toLocaleString()}</span>
+                        </span>
+                      )}
                     </div>
                   </>
                 )}
 
                 {/* Divider when no meta */}
-                {(!alert.meta || alert.meta.length === 0) && (
+                {alert.similarity == null && (
                   <div className="border-t border-slate-100 mb-4" />
                 )}
 
                 {/* Action Buttons */}
                 <div className="flex flex-wrap items-center gap-2.5">
-                  {(alert.actions ?? [{ label: 'Mark reviewed', style: 'outline' }]).map((action, i) => {
-                    if (action.style === 'primary') {
-                      return (
-                        <button
-                          key={i}
-                          onClick={() => isReal && handleResolve(alert.id)}
-                          className="h-9 px-5 bg-[#5A2D72] hover:bg-[#4A245C] text-white text-[12.5px] font-bold rounded-[10px] transition-colors"
-                        >
-                          {action.label}
-                        </button>
-                      );
-                    }
-                    if (action.style === 'danger') {
-                      return (
-                        <button
-                          key={i}
-                          className="h-9 px-5 bg-[#FDF0EF] hover:bg-[#FAE0DD] text-[#C0392B] border border-[#E8B4AF] text-[12.5px] font-bold rounded-[10px] transition-colors"
-                        >
-                          {action.label}
-                        </button>
-                      );
-                    }
-                    // outline (default)
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => isReal && handleResolve(alert.id)}
-                        className="h-9 px-5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 text-[12.5px] font-bold rounded-[10px] transition-colors"
-                      >
-                        {action.label}
-                      </button>
-                    );
-                  })}
+                  {alert.type === 'duplicate' && (
+                    <button
+                      onClick={() => handleRejectInvoice(alert.invoice_id)}
+                      className="h-9 px-5 bg-[#FDF0EF] hover:bg-[#FAE0DD] text-[#C0392B] border border-[#E8B4AF] text-[12.5px] font-bold rounded-[10px] transition-colors"
+                    >
+                      Reject Invoice
+                    </button>
+                  )}
+                  {alert.type === 'high_value' && (
+                    <button
+                      onClick={() => handleResolve(alert.id, true)}
+                      className="h-9 px-5 bg-[#5A2D72] hover:bg-[#4A245C] text-white text-[12.5px] font-bold rounded-[10px] transition-colors"
+                    >
+                      Approve Invoice
+                    </button>
+                  )}
+                  {alert.type === 'missing_field' && (
+                    <button
+                      onClick={() => navigate(`/invoices/${alert.invoice_id}`)}
+                      className="h-9 px-5 bg-[#5A2D72] hover:bg-[#4A245C] text-white text-[12.5px] font-bold rounded-[10px] transition-colors"
+                    >
+                      Edit Manually
+                    </button>
+                  )}
+                  {alert.resolved ? (
+                    <button
+                      disabled
+                      className="h-9 px-5 bg-slate-50 text-slate-400 border border-slate-200 text-[12.5px] font-bold rounded-[10px] cursor-not-allowed flex items-center gap-2"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      Reviewed
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleResolve(alert.id, false)}
+                      className="h-9 px-5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 text-[12.5px] font-bold rounded-[10px] transition-colors"
+                    >
+                      Mark reviewed
+                    </button>
+                  )}
                 </div>
               </div>
-            );
+            )
           })}
 
         </div>

@@ -60,7 +60,7 @@ export default function VerifyPage() {
     setResending(true);
     try {
       await resendVerification(email);
-      toast.success('A new temporary key has been logged to the console!');
+      toast.success('A new temporary key has been sent to your email inbox!');
       setCountdown(60); // 60-second cooldown
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to resend code');
@@ -220,7 +220,7 @@ export default function VerifyPage() {
                 className="w-full tracking-[0.6em] text-center font-bold px-3.5 py-[12px] rounded-md border border-slate-200 text-[18px] text-slate-800 placeholder-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-purple-600 focus:border-purple-600 transition-all"
               />
               <p className="text-[11px] text-slate-400 font-light pt-0.5">
-                💡 Check your backend server console for the generated code!
+                Check your email inbox for the verification key!
               </p>
             </div>
 

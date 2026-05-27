@@ -4,12 +4,13 @@ import { Calendar, Upload, Save, Lock, Info, User } from 'lucide-react';
 import NotificationButton from '../components/NotificationButton';
 import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
+import api from '../lib/api';
 
 const inputClass = "w-full h-11 px-4 bg-white border border-slate-200 rounded-[12px] text-[13.5px] font-medium text-slate-700 placeholder-slate-400 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus:border-[#5A2D72] transition-all shadow-sm";
 const labelClass = "block text-[12px] font-bold text-slate-500 uppercase tracking-widest mb-1.5";
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
 
   const [profileForm, setProfileForm] = useState({
     name:  user?.name  ?? '',
@@ -22,6 +23,9 @@ export default function SettingsPage() {
     confirmPassword: '',
   });
 
+  const [savingProfile,  setSavingProfile]  = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+
   const getInitials = () => {
     if (!user?.name) return 'TU';
     const parts = user.name.split(' ');
@@ -29,25 +33,57 @@ export default function SettingsPage() {
     return user.name.slice(0, 2).toUpperCase();
   };
 
-  const handleProfile = (e) => {
+  const handleProfile = async (e) => {
     e.preventDefault();
-    toast.success('Profile updated!');
+    if (!profileForm.name.trim() || !profileForm.email.trim()) {
+      toast.error('Name and email are required');
+      return;
+    }
+    try {
+      setSavingProfile(true);
+      const { data } = await api.patch('/auth/me', {
+        name:  profileForm.name.trim(),
+        email: profileForm.email.trim(),
+      });
+      updateUser({ name: data.name, email: data.email });
+      toast.success('Profile updated successfully!');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update profile');
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
-  const handlePassword = (e) => {
+  const handlePassword = async (e) => {
     e.preventDefault();
     if (pwForm.newPassword !== pwForm.confirmPassword) {
       toast.error('New passwords do not match');
       return;
     }
-    toast.success('Password changed!');
+    if (pwForm.newPassword.length < 6) {
+      toast.error('New password must be at least 6 characters');
+      return;
+    }
+    try {
+      setSavingPassword(true);
+      await api.patch('/auth/me/password', {
+        currentPassword: pwForm.currentPassword,
+        newPassword:     pwForm.newPassword,
+      });
+      toast.success('Password changed successfully!');
+      setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to change password');
+    } finally {
+      setSavingPassword(false);
+    }
   };
 
   return (
     <div className="flex-1 flex flex-col min-h-screen bg-[#F8F9FA]">
 
       {/* ── Top Action Header Bar ── */}
-      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
+      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0 relative z-50">
         <div>
           <span className="text-[10px] tracking-wider uppercase font-bold text-slate-400 block mb-1">
             Account
@@ -62,12 +98,12 @@ export default function SettingsPage() {
 
         <div className="flex items-center gap-3">
           <div className="bg-white border border-slate-200 rounded-[10px] h-9 px-3.5 text-[12.5px] font-semibold text-slate-600 flex items-center gap-2 shadow-sm">
-            <Calendar size={14} />
+            <Calendar size={14} className="text-slate-600" />
             <span>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
           </div>
           <NotificationButton />
-          <Link to="/upload" className="bg-[#5A2D72] hover:bg-[#4A245C] text-white text-[12.5px] font-semibold rounded-[10px] h-9 px-5 flex items-center justify-center gap-2.5 transition-all whitespace-nowrap shadow-[0_1px_3px_rgba(90,45,114,0.15)]">
-            <Upload size={14} className="stroke-[2.5px]" />
+          <Link to="/upload" className="bg-[#5A2D72] hover:bg-[#4A245C] active:bg-[#3B1D4A] text-white text-[12.5px] font-semibold rounded-[10px] h-9 px-5 flex items-center justify-center gap-2.5 shadow-[0_1px_3px_rgba(90,45,114,0.15)] transition-all cursor-pointer select-none whitespace-nowrap">
+            <Upload size={14} className="stroke-[2.5px] text-white" />
             <span>Upload Invoice</span>
           </Link>
         </div>
@@ -125,10 +161,11 @@ export default function SettingsPage() {
                 <button
                   id="save-profile-btn"
                   type="submit"
-                  className="h-11 px-6 bg-[#5A2D72] hover:bg-[#4A245C] text-white text-[13px] font-bold rounded-[12px] flex items-center gap-2.5 transition-all shadow-[0_1px_4px_rgba(90,45,114,0.2)]"
+                  disabled={savingProfile}
+                  className="h-11 px-6 bg-[#5A2D72] hover:bg-[#4A245C] disabled:opacity-60 text-white text-[13px] font-bold rounded-[12px] flex items-center gap-2.5 transition-all shadow-[0_1px_4px_rgba(90,45,114,0.2)]"
                 >
                   <Save size={14} className="stroke-[2.5px]" />
-                  Save Profile
+                  {savingProfile ? 'Saving...' : 'Save Profile'}
                 </button>
               </div>
             </form>
@@ -165,10 +202,11 @@ export default function SettingsPage() {
                 <button
                   id="change-password-btn"
                   type="submit"
-                  className="h-11 px-6 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-[13px] font-bold rounded-[12px] flex items-center gap-2.5 transition-all shadow-sm"
+                  disabled={savingPassword}
+                  className="h-11 px-6 bg-white hover:bg-slate-50 disabled:opacity-60 border border-slate-200 text-slate-700 text-[13px] font-bold rounded-[12px] flex items-center gap-2.5 transition-all shadow-sm"
                 >
                   <Lock size={14} className="stroke-[2.5px]" />
-                  Update Password
+                  {savingPassword ? 'Updating...' : 'Update Password'}
                 </button>
               </div>
             </form>

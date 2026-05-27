@@ -55,8 +55,13 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  // Used by SettingsPage to sync updated profile back into context
+  const updateUser = (updatedFields) => {
+    setUser(prev => ({ ...prev, ...updatedFields }));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, verify, resendVerification, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, verify, resendVerification, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

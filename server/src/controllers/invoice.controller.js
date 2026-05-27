@@ -235,7 +235,12 @@ export const getInvoice = async (req, res) => {
 
 /* PATCH /api/invoices/:id  */
 export const updateInvoice = async (req, res) => {
-  const { supplier_name, invoice_number, invoice_date, total_amount, due_date, category, status, notes } = req.body;
+  const { supplier_name, invoice_number, category, notes } = req.body;
+
+  const nullIfEmpty = (v) => (v === '' || v == null ? null : v);
+  const invoice_date  = nullIfEmpty(req.body.invoice_date);
+  const due_date      = nullIfEmpty(req.body.due_date);
+  const total_amount  = nullIfEmpty(req.body.total_amount);
 
   const { rows } = await query(
     `UPDATE invoices SET
@@ -245,11 +250,10 @@ export const updateInvoice = async (req, res) => {
        total_amount   = COALESCE($4, total_amount),
        due_date       = COALESCE($5, due_date),
        category       = COALESCE($6, category),
-       status         = COALESCE($7, status),
-       notes          = COALESCE($8, notes)
-     WHERE id = $9
+       notes          = COALESCE($7, notes)
+     WHERE id = $8
      RETURNING *`,
-    [supplier_name, invoice_number, invoice_date, total_amount, due_date, category, status, notes, req.params.id]
+    [supplier_name || null, invoice_number || null, invoice_date, total_amount, due_date, category || null, notes || null, req.params.id]
   );
 
   if (!rows[0]) throw new AppError('Invoice not found', 404);
@@ -283,9 +287,55 @@ export const deleteInvoice = async (req, res) => {
   res.json({ message: 'Invoice deleted successfully' });
 };
 
+/* PATCH /api/invoices/:id/payment  — Toggle status between verified and paid */
+export const togglePaymentStatus = async (req, res) => {
+  const { rows } = await query('SELECT * FROM invoices WHERE id = $1', [req.params.id]);
+  if (!rows[0]) throw new AppError('Invoice not found', 404);
+
+  const invoice = rows[0];
+
+  // Enforce ownership
+  if (req.user.role !== 'admin' && invoice.user_id !== req.user.id) {
+    throw new AppError('Forbidden', 403);
+  }
+
+  // Enforce corporate compliance rules (no paying flagged, pending, or duplicate invoices)
+  if (invoice.status === 'duplicate' || invoice.status === 'flagged' || invoice.status === 'pending') {
+    throw new AppError('Cannot toggle payment status. Please resolve all active anomalies first.', 400);
+  }
+
+  const newStatus = invoice.status === 'paid' ? 'verified' : 'paid';
+
+  const updatedRes = await query(
+    `UPDATE invoices SET status = $1 WHERE id = $2 RETURNING *`,
+    [newStatus, invoice.id]
+  );
+
+  res.json(updatedRes.rows[0]);
+};
+
 /* POST /api/invoices/:id/confirm  — user confirms OCR data */
+
 export const confirmInvoice = async (req, res) => {
-  const { supplier_name, invoice_number, invoice_date, total_amount, due_date, category, notes } = req.body;
+  const { supplier_name, invoice_number, category, notes } = req.body;
+
+  // Coerce empty strings → null for typed columns (date, numeric)
+  // so PostgreSQL doesn't throw "invalid input syntax for type date: ''"
+  const nullIfEmpty = (v) => (v === '' || v == null ? null : v);
+
+  const invoice_date  = nullIfEmpty(req.body.invoice_date);
+  const due_date      = nullIfEmpty(req.body.due_date);
+  const total_amount  = nullIfEmpty(req.body.total_amount);
+
+  // Determine if any required fields are missing — if so, keep status as 'pending'
+  const missingFields = [];
+  if (!supplier_name)  missingFields.push('supplier_name');
+  if (!invoice_number) missingFields.push('invoice_number');
+  if (!invoice_date)   missingFields.push('invoice_date');
+  if (!due_date)       missingFields.push('due_date');
+  if (!total_amount)   missingFields.push('total_amount');
+
+  const initialStatus = missingFields.length > 0 ? 'pending' : 'verified';
 
   const { rows } = await query(
     `UPDATE invoices SET
@@ -296,10 +346,10 @@ export const confirmInvoice = async (req, res) => {
        due_date       = $5,
        category       = $6,
        notes          = $7,
-       status         = 'verified'
-     WHERE id = $8 AND user_id = $9
+       status         = $8
+     WHERE id = $9 AND user_id = $10
      RETURNING *`,
-    [supplier_name, invoice_number, invoice_date, total_amount, due_date, category, notes, req.params.id, req.user.id]
+    [supplier_name || null, invoice_number || null, invoice_date, total_amount, due_date, category, notes || null, initialStatus, req.params.id, req.user.id]
   );
   if (!rows[0]) throw new AppError('Invoice not found or not yours', 404);
 
@@ -309,59 +359,192 @@ export const confirmInvoice = async (req, res) => {
 
 // ── Anomaly detection ─────────────────────────────────────
 
-async function runAnomalyChecks(invoice) {
-  const checks = [];
+// Maps each alert type to its metadata shown in the Alerts tab
+const ALERT_META = {
+  missing_field: {
+    risk:       'low',
+    type_label: 'Missing Field — Low Risk',
+    descriptionFn: (missing) =>
+      `One or more required fields could not be extracted or were left blank: ${missing.join(', ')}.`,
+  },
+  high_value: {
+    risk:       'medium',
+    type_label: 'High Amount — Medium Risk',
+    descriptionFn: (amount) =>
+      `Invoice total ₱${parseFloat(amount).toLocaleString()} exceeds the ₱100,000 alert threshold. Management approval may be required.`,
+  },
+  duplicate: {
+    risk:       'high',
+    type_label: 'Duplicate Invoice — High Risk',
+    descriptionFn: (dupeId) =>
+      `This invoice appears to be a duplicate of invoice ${dupeId}. Possible duplicate payment risk.`,
+  },
+};
 
-  // 1. Missing required fields
+async function runAnomalyChecks(invoice) {
+  const missingFieldAlerts = [];
+  const realAnomalyAlerts  = [];
+
+  // 1. Missing required fields — status stays 'pending', NOT flagged
   const missing = [];
-  if (!invoice.supplier_name)  missing.push('supplier_name');
-  if (!invoice.invoice_number) missing.push('invoice_number');
-  if (!invoice.invoice_date)   missing.push('invoice_date');
-  if (!invoice.total_amount)   missing.push('total_amount');
+  if (!invoice.supplier_name)  missing.push('Supplier Name');
+  if (!invoice.invoice_number) missing.push('Invoice Number');
+  if (!invoice.invoice_date)   missing.push('Invoice Date');
+  if (!invoice.due_date)       missing.push('Due Date');
+  if (!invoice.total_amount)   missing.push('Total Amount');
 
   if (missing.length) {
-    checks.push({
-      invoice_id: invoice.id,
-      type: 'missing_field',
-      message: `Missing fields: ${missing.join(', ')}`,
+    const meta = ALERT_META.missing_field;
+    missingFieldAlerts.push({
+      invoice_id:  invoice.id,
+      type:        'missing_field',
+      risk:        meta.risk,
+      type_label:  meta.type_label,
+      message:     `Missing Field — ${missing.join(', ')}`,
+      description: meta.descriptionFn(missing),
     });
   }
 
-  // 2. High-value alert (> 100,000 PHP)
+  // 2. High-value alert (> 100,000 PHP) — only if amount is present
   if (invoice.total_amount && invoice.total_amount > 100000) {
-    checks.push({
-      invoice_id: invoice.id,
-      type: 'high_value',
-      message: `High-value invoice: ₱${parseFloat(invoice.total_amount).toLocaleString()}`,
+    const meta = ALERT_META.high_value;
+    realAnomalyAlerts.push({
+      invoice_id:  invoice.id,
+      type:        'high_value',
+      risk:        meta.risk,
+      type_label:  meta.type_label,
+      message:     `Invoice total ₱${parseFloat(invoice.total_amount).toLocaleString()} exceeds ₱100,000 threshold`,
+      description: meta.descriptionFn(invoice.total_amount),
     });
   }
 
   // 3. Duplicate detection (same supplier + total + date)
   if (invoice.supplier_name && invoice.total_amount && invoice.invoice_date) {
     const dupes = await query(
+      `SELECT id, invoice_number FROM invoices
+       WHERE id != $1
+         AND supplier_name ILIKE $2
+         AND total_amount  = $3
+         AND invoice_date  = $4`,
+      [invoice.id, invoice.supplier_name, invoice.total_amount, invoice.invoice_date]
+    );
+    if (dupes.rows.length) {
+      const dupe = dupes.rows[0];
+      const meta = ALERT_META.duplicate;
+      realAnomalyAlerts.push({
+        invoice_id:  invoice.id,
+        type:        'duplicate',
+        risk:        meta.risk,
+        type_label:  meta.type_label,
+        message:     `Duplicate of ${dupe.invoice_number || dupe.id}`,
+        description: meta.descriptionFn(dupe.invoice_number || dupe.id),
+      });
+
+      // Symmetrically flag the existing duplicates in the system as well!
+      for (const d of dupes.rows) {
+        await query(
+          `INSERT INTO alerts (invoice_id, type, risk, type_label, message, description)
+           VALUES ($1, 'duplicate', 'high', 'Duplicate Invoice — High Risk', $2, $3)
+           ON CONFLICT (invoice_id, type)
+           DO UPDATE SET message = EXCLUDED.message,
+                         description = EXCLUDED.description,
+                         resolved = FALSE`,
+          [
+            d.id,
+            `Duplicate of ${invoice.invoice_number || invoice.id}`,
+            `This invoice appears to be a duplicate of invoice ${invoice.invoice_number || invoice.id}. Possible duplicate payment risk.`
+          ]
+        );
+        await query(`UPDATE invoices SET status = 'duplicate' WHERE id = $1`, [d.id]);
+      }
+    }
+  }
+
+  // ── Persist alerts with full metadata ─────────────────────────────
+  // ON CONFLICT (invoice_id, type) → update the message/description in case fields changed
+  const allAlerts = [...missingFieldAlerts, ...realAnomalyAlerts];
+  for (const a of allAlerts) {
+    await query(
+      `INSERT INTO alerts (invoice_id, type, risk, type_label, message, description)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (invoice_id, type)
+       DO UPDATE SET message = EXCLUDED.message,
+                     description = EXCLUDED.description,
+                     resolved = FALSE`,
+      [a.invoice_id, a.type, a.risk, a.type_label, a.message, a.description]
+    );
+  }
+
+  // If an anomaly type was previously recorded but no longer applies, remove it
+  // (e.g. user filled in missing fields, or duplicate was deleted)
+  const activeTypes = allAlerts.map(a => a.type);
+  if (activeTypes.length > 0) {
+    await query(
+      `DELETE FROM alerts WHERE invoice_id = $1 AND type != ALL($2::text[])`,
+      [invoice.id, activeTypes]
+    );
+  } else {
+    // No anomalies — clear all alerts for this invoice
+    await query(`DELETE FROM alerts WHERE invoice_id = $1`, [invoice.id]);
+  }
+
+  // ── Status resolution ──────────────────────────────────────────────
+  // duplicate    → 'duplicate'
+  // high_value   → 'flagged'
+  // missing only → 'pending'
+  // clean        → 'verified'
+  const hasDuplicate = realAnomalyAlerts.some(a => a.type === 'duplicate');
+  const hasHighValue = realAnomalyAlerts.some(a => a.type === 'high_value');
+
+  if (hasDuplicate) {
+    await query(`UPDATE invoices SET status = 'duplicate' WHERE id = $1`, [invoice.id]);
+  } else if (hasHighValue) {
+    await query(`UPDATE invoices SET status = 'flagged' WHERE id = $1`, [invoice.id]);
+  } else if (missingFieldAlerts.length === 0) {
+    // Fully clean — promote to verified
+    await query(
+      `UPDATE invoices SET status = 'verified' WHERE id = $1 AND status IN ('flagged','duplicate','pending')`,
+      [invoice.id]
+    );
+  }
+  // missing_field only → leave status as 'pending' (set by confirmInvoice)
+
+  // Clean up any other duplicate alerts that are now orphans (i.e. no longer have a duplicate in the DB)
+  await cleanupOrphanedDuplicateAlerts();
+}
+
+/** Clean up any duplicate alerts that no longer have matching invoices in the DB */
+async function cleanupOrphanedDuplicateAlerts() {
+  const { rows } = await query(
+    `SELECT DISTINCT invoice_id FROM alerts WHERE type = 'duplicate' AND resolved = FALSE`
+  );
+
+  for (const r of rows) {
+    const invId = r.invoice_id;
+    const invRes = await query('SELECT id, supplier_name, total_amount, invoice_date FROM invoices WHERE id = $1', [invId]);
+    if (!invRes.rows[0]) continue;
+    const inv = invRes.rows[0];
+
+    const dupes = await query(
       `SELECT id FROM invoices
        WHERE id != $1
          AND supplier_name ILIKE $2
          AND total_amount = $3
          AND invoice_date = $4`,
-      [invoice.id, invoice.supplier_name, invoice.total_amount, invoice.invoice_date]
+      [inv.id, inv.supplier_name, inv.total_amount, inv.invoice_date]
     );
-    if (dupes.rows.length) {
-      checks.push({
-        invoice_id: invoice.id,
-        type: 'duplicate',
-        message: `Possible duplicate of invoice ${dupes.rows[0].id}`,
-      });
-    }
-  }
 
-  // Persist alerts (avoid re-inserting same type)
-  for (const check of checks) {
-    await query(
-      `INSERT INTO alerts (invoice_id, type, message)
-       VALUES ($1, $2, $3)
-       ON CONFLICT DO NOTHING`,
-      [check.invoice_id, check.type, check.message]
-    );
+    if (dupes.rows.length === 0) {
+      await query(`DELETE FROM alerts WHERE invoice_id = $1 AND type = 'duplicate'`, [inv.id]);
+
+      const remaining = await query(`SELECT type FROM alerts WHERE invoice_id = $1 AND resolved = FALSE`, [inv.id]);
+      let newStatus = 'verified';
+      if (remaining.rows.some(a => a.type === 'high_value')) {
+        newStatus = 'flagged';
+      } else if (remaining.rows.some(a => a.type === 'missing_field')) {
+        newStatus = 'pending';
+      }
+      await query(`UPDATE invoices SET status = $1 WHERE id = $2`, [newStatus, inv.id]);
+    }
   }
 }

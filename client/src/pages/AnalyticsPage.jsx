@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, Upload } from 'lucide-react';
 import NotificationButton from '../components/NotificationButton';
@@ -23,6 +23,7 @@ const fmt = (v) => `₱${(v / 1000).toFixed(0)}k`;
 const fmtPHP = (v) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 0 }).format(v);
 
 // ── Fallback data matching the reference ──────────────────────
+/*
 const FALLBACK_SUPPLIERS = [
   { supplier: 'DBTK Supplies Co.', total: 487200 },
   { supplier: 'PhilStar Utilities', total: 342000 },
@@ -45,6 +46,7 @@ const FALLBACK_CATEGORIES = [
   { name: 'Equipment', value: 252000, color: CATEGORY_COLORS.Equipment },
   { name: 'Utilities', value: 157000, color: CATEGORY_COLORS.Utilities },
 ];
+*/
 
 // ── Custom Tooltip ─────────────────────────────────────────────
 const SupplierTooltip = ({ active, payload }) => {
@@ -70,22 +72,45 @@ const MonthlyTooltip = ({ active, payload, label }) => {
 const renderCustomLabel = () => null;
 
 export default function AnalyticsPage() {
-  const [suppliers, setSuppliers] = useState([]);
-  const [monthly,   setMonthly]   = useState([]);
+  const [suppliers,   setSuppliers]   = useState([]);
+  const [monthly,     setMonthly]     = useState([]);
+  const [categories,  setCategories]  = useState([]);
+  const [summary,     setSummary]     = useState(null);
+  const [loading,     setLoading]     = useState(true);
 
-  useEffect(() => {
-    api.get('/analytics/by-supplier').then(r => setSuppliers(r.data)).catch(() => {});
-    api.get('/analytics/monthly').then(r => setMonthly(r.data)).catch(() => {});
+  const loadAnalytics = useCallback(() => {
+    Promise.all([
+      api.get('/analytics/by-supplier'),
+      api.get('/analytics/monthly'),
+      api.get('/analytics/by-category'),
+      api.get('/analytics/summary'),
+    ]).then(([sRes, mRes, cRes, sumRes]) => {
+      setSuppliers(sRes.data);
+      setMonthly(mRes.data);
+      setCategories(cRes.data.map(c => ({
+        name:  c.category ?? 'Other',
+        value: parseFloat(c.total),
+        color: CATEGORY_COLORS[c.category] ?? '#94a3b8',
+      })));
+      setSummary(sumRes.data);
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  const activeSuppliers = suppliers.length > 0 ? suppliers : FALLBACK_SUPPLIERS;
-  const activeMonthly   = monthly.length   > 0 ? monthly   : FALLBACK_MONTHLY;
+  useEffect(() => {
+    loadAnalytics();
+    window.addEventListener('alerts-updated', loadAnalytics);
+    return () => window.removeEventListener('alerts-updated', loadAnalytics);
+  }, [loadAnalytics]);
+
+  const avgInvoice = summary && summary.totalInvoices > 0
+    ? summary.totalExpenses / summary.totalInvoices
+    : 0;
 
   return (
     <div className="flex-1 flex flex-col min-h-screen bg-[#F8F9FA]">
 
       {/* ── Top Action Header Bar ── */}
-      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
+      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0 relative z-50">
         <div>
           <span className="text-[10px] tracking-wider uppercase font-bold text-slate-400 block mb-1">
             Insights
@@ -101,11 +126,11 @@ export default function AnalyticsPage() {
         <div className="flex items-center gap-3">
           <div className="bg-white border border-slate-200 rounded-[10px] h-9 px-3.5 text-[12.5px] font-semibold text-slate-600 flex items-center gap-2 shadow-sm">
             <Calendar size={14} className="text-slate-600" />
-            <span>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+            <span>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
           </div>
           <NotificationButton />
-          <Link to="/upload" className="bg-[#5A2D72] hover:bg-[#4A245C] text-white text-[12.5px] font-semibold rounded-[10px] h-9 px-5 flex items-center justify-center gap-2.5 shadow-[0_1px_3px_rgba(90,45,114,0.15)] transition-all whitespace-nowrap">
-            <Upload size={14} className="stroke-[2.5px]" />
+          <Link to="/upload" className="bg-[#5A2D72] hover:bg-[#4A245C] active:bg-[#3B1D4A] text-white text-[12.5px] font-semibold rounded-[10px] h-9 px-5 flex items-center justify-center gap-2.5 shadow-[0_1px_3px_rgba(90,45,114,0.15)] transition-all cursor-pointer select-none whitespace-nowrap">
+            <Upload size={14} className="stroke-[2.5px] text-white" />
             <span>Upload Invoice</span>
           </Link>
         </div>
@@ -123,9 +148,9 @@ export default function AnalyticsPage() {
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Avg Invoice</p>
               <p className="text-[38px] font-black text-slate-900 leading-none tracking-tight mb-2"
                 style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-                ₱24,850
+                {loading ? '...' : fmtPHP(avgInvoice)}
               </p>
-              <p className="text-[12px] font-semibold text-slate-400">Per transaction this month</p>
+              <p className="text-[12px] font-semibold text-slate-400">Per transaction · {summary?.totalInvoices ?? '—'} total invoices</p>
             </div>
 
             {/* OCR Accuracy */}
@@ -155,9 +180,14 @@ export default function AnalyticsPage() {
           {/* ── Top Suppliers By Spend (Horizontal Bar Chart) ── */}
           <div className="bg-white border border-slate-100/90 rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
             <h2 className="text-[15.5px] font-extrabold text-slate-900 mb-5">Top Suppliers By Spend</h2>
+            {suppliers.length === 0 && loading ? (
+              <p className="text-slate-400 text-sm py-10 text-center animate-pulse">Loading chart...</p>
+            ) : suppliers.length === 0 ? (
+              <p className="text-slate-400 text-sm py-10 text-center">No supplier data yet.</p>
+            ) : (
             <ResponsiveContainer width="100%" height={270}>
               <BarChart
-                data={activeSuppliers}
+                data={suppliers}
                 layout="vertical"
                 margin={{ top: 0, right: 20, left: 10, bottom: 0 }}
                 barCategoryGap="18%"
@@ -169,8 +199,6 @@ export default function AnalyticsPage() {
                   tickFormatter={fmt}
                   axisLine={false}
                   tickLine={false}
-                  domain={[0, 500000]}
-                  ticks={[0, 50000, 100000, 150000, 200000, 250000, 300000, 350000, 400000, 450000, 500000]}
                 />
                 <YAxis
                   type="category"
@@ -178,16 +206,17 @@ export default function AnalyticsPage() {
                   tick={{ fontSize: 12, fill: '#94a3b8', fontWeight: 600 }}
                   axisLine={false}
                   tickLine={false}
-                  width={120}
+                  width={140}
                 />
                 <Tooltip content={<SupplierTooltip />} cursor={{ fill: 'rgba(241,245,249,0.6)' }} />
                 <Bar dataKey="total" radius={[0, 6, 6, 0]} maxBarSize={52}>
-                  {activeSuppliers.map((_, i) => (
+                  {suppliers.map((_, i) => (
                     <Cell key={i} fill={SUPPLIER_COLORS[i % SUPPLIER_COLORS.length]} />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+            )}
           </div>
 
           {/* ── Bottom Row: Invoice Volume + Category Breakdown ── */}
@@ -196,35 +225,47 @@ export default function AnalyticsPage() {
             {/* Invoice Volume By Month */}
             <div className="bg-white border border-slate-100/90 rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
               <h2 className="text-[15.5px] font-extrabold text-slate-900 mb-5">Invoice Volume By Month</h2>
+              {monthly.length === 0 && loading ? (
+                <p className="text-slate-400 text-sm py-10 text-center animate-pulse">Loading chart...</p>
+              ) : monthly.length === 0 ? (
+                <p className="text-slate-400 text-sm py-10 text-center">No monthly data yet.</p>
+              ) : (
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={activeMonthly} margin={{ top: 0, right: 10, left: -20, bottom: 0 }} barCategoryGap="20%">
+                <BarChart data={monthly} margin={{ top: 0, right: 10, left: -20, bottom: 0 }} barCategoryGap="20%">
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis
                     dataKey="month"
                     tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }}
                     axisLine={false}
                     tickLine={false}
+                    tickFormatter={(v) => new Date(v + '-01').toLocaleDateString('en-US', { month: 'short' })}
                   />
                   <YAxis
                     tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }}
                     axisLine={false}
                     tickLine={false}
-                    ticks={[0, 20, 40, 60, 80]}
+                    allowDecimals={false}
                   />
                   <Tooltip content={<MonthlyTooltip />} cursor={{ fill: 'rgba(241,245,249,0.5)' }} />
                   <Bar dataKey="count" fill="#1B3B6F" radius={[5, 5, 0, 0]} maxBarSize={56} />
                 </BarChart>
               </ResponsiveContainer>
+              )}
             </div>
 
             {/* Category Breakdown Donut */}
             <div className="bg-white border border-slate-100/90 rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
               <h2 className="text-[15.5px] font-extrabold text-slate-900 mb-5">Category Breakdown</h2>
+              {categories.length === 0 && loading ? (
+                <p className="text-slate-400 text-sm py-10 text-center animate-pulse">Loading chart...</p>
+              ) : categories.length === 0 ? (
+                <p className="text-slate-400 text-sm py-10 text-center">No category data yet.</p>
+              ) : (
               <div className="flex items-center gap-4">
                 <div className="shrink-0">
                   <PieChart width={190} height={190}>
                     <Pie
-                      data={FALLBACK_CATEGORIES}
+                      data={categories}
                       cx={90}
                       cy={90}
                       innerRadius={58}
@@ -236,7 +277,7 @@ export default function AnalyticsPage() {
                       startAngle={90}
                       endAngle={-270}
                     >
-                      {FALLBACK_CATEGORIES.map((entry, i) => (
+                      {categories.map((entry, i) => (
                         <Cell key={i} fill={entry.color} stroke="none" />
                       ))}
                     </Pie>
@@ -245,7 +286,7 @@ export default function AnalyticsPage() {
 
                 {/* Legend */}
                 <div className="flex flex-col gap-3 flex-1">
-                  {FALLBACK_CATEGORIES.map((cat) => (
+                  {categories.map((cat) => (
                     <div key={cat.name} className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: cat.color }} />
@@ -258,6 +299,7 @@ export default function AnalyticsPage() {
                   ))}
                 </div>
               </div>
+              )}
             </div>
 
           </div>

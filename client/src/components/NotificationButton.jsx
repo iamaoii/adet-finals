@@ -1,46 +1,82 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, X, AlertTriangle, Copy, TrendingUp } from 'lucide-react';
+import api from '../lib/api';
 
-const MOCK_NOTIFICATIONS = [
-  {
-    id: 1,
-    icon: Copy,
-    iconBg: 'bg-[#FDF0EF]',
-    iconColor: 'text-[#C0392B]',
-    title: 'Duplicate Invoice Detected',
-    desc: 'INV-2025-089 is a possible duplicate of INV-2025-109.',
-    time: '2 min ago',
-    unread: true,
-  },
-  {
-    id: 2,
-    icon: TrendingUp,
-    iconBg: 'bg-[#FFFBEB]',
-    iconColor: 'text-[#B7791F]',
-    title: 'High Amount Alert',
-    desc: 'INV-2025-108 exceeds the ₱75,000 threshold by 31%.',
-    time: '18 min ago',
-    unread: true,
-  },
-  {
-    id: 3,
-    icon: AlertTriangle,
-    iconBg: 'bg-[#FFFBEB]',
-    iconColor: 'text-[#B7791F]',
-    title: 'Missing Field',
-    desc: 'Invoice date could not be extracted from receipt.',
-    time: '1 hr ago',
-    unread: false,
-  },
-];
+const getAlertConfig = (alert) => {
+  const type = (alert.type ?? '').toLowerCase();
+  const risk = (alert.risk ?? 'medium').toLowerCase();
+  
+  let icon;
+  let iconBg;
+  let iconColor;
+  
+  if (type.includes('duplicate')) {
+    icon = Copy;
+    iconBg = 'bg-[#FDF0EF]';
+    iconColor = 'text-[#C0392B]';
+  } else if (type.includes('amount') || type.includes('threshold') || risk === 'high') {
+    icon = TrendingUp;
+    iconBg = 'bg-[#FFFBEB]';
+    iconColor = 'text-[#B7791F]';
+    if (risk === 'high') {
+      iconBg = 'bg-[#FDF0EF]';
+      iconColor = 'text-[#C0392B]';
+    }
+  } else {
+    // missing field or low risk
+    icon = AlertTriangle;
+    iconBg = 'bg-[#E2ECF7]';
+    iconColor = 'text-[#1B3B6F]';
+  }
+  
+  return { icon, iconBg, iconColor };
+};
+
+const timeAgo = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffSec = Math.floor((now - d) / 1000);
+  if (diffSec < 60) return 'Just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} min ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} hr ago`;
+  const diffDays = Math.floor(diffHr / 24);
+  if (diffDays === 1) return 'Yesterday';
+  return `${diffDays} days ago`;
+};
 
 export default function NotificationButton() {
   const [open, setOpen]   = useState(false);
-  const [notes, setNotes] = useState(MOCK_NOTIFICATIONS);
+  const [notes, setNotes] = useState([]);
   const ref = useRef(null);
 
-  const unreadCount = notes.filter(n => n.unread).length;
+  const unreadCount = notes.filter(n => !n.resolved).length;
+
+  const loadAlerts = useCallback(() => {
+    api.get('/alerts', { params: { resolved: false } })
+      .then(({ data }) => {
+        setNotes(data || []);
+      })
+      .catch(() => {});
+  }, []);
+
+
+  useEffect(() => {
+    loadAlerts();
+    // Refresh alerts periodically (every 30s)
+    const t = setInterval(loadAlerts, 30000);
+    
+    // Listen for instant real-time updates from other pages
+    window.addEventListener('alerts-updated', loadAlerts);
+    
+    return () => {
+      clearInterval(t);
+      window.removeEventListener('alerts-updated', loadAlerts);
+    };
+  }, [loadAlerts]);
 
   // Close on outside click
   useEffect(() => {
@@ -51,8 +87,23 @@ export default function NotificationButton() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const markAllRead = () => setNotes(n => n.map(x => ({ ...x, unread: false })));
-  const dismiss = (id) => setNotes(n => n.filter(x => x.id !== id));
+  const markAllRead = async () => {
+    try {
+      await Promise.all(notes.map(n => api.patch(`/alerts/${n.id}/resolve`)));
+      setNotes([]);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const dismiss = async (id) => {
+    try {
+      await api.patch(`/alerts/${id}/resolve`);
+      setNotes(prev => prev.filter(x => x.id !== id));
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   return (
     <div className="relative" ref={ref}>
@@ -101,33 +152,46 @@ export default function NotificationButton() {
                 <p className="text-[13px] font-semibold text-slate-400">No notifications</p>
               </div>
             ) : notes.map((n) => {
-              const Icon = n.icon;
+              const { icon: Icon, iconBg, iconColor } = getAlertConfig(n);
               return (
                 <div
                   key={n.id}
-                  className={`flex items-start gap-3.5 px-5 py-4 transition-colors ${n.unread ? 'bg-[#FDFBFF]' : 'bg-white'} hover:bg-slate-50`}
+                  className={`flex items-start gap-3.5 px-5 py-4 transition-colors ${n.resolved ? 'bg-white opacity-60' : 'bg-[#FDFBFF] hover:bg-slate-50'}`}
                 >
-                  <div className={`w-8 h-8 rounded-[8px] ${n.iconBg} flex items-center justify-center shrink-0 mt-0.5`}>
-                    <Icon size={14} className={n.iconColor} />
+                  <div className={`w-8 h-8 rounded-[8px] ${iconBg} flex items-center justify-center shrink-0 mt-0.5`}>
+                    <Icon size={14} className={iconColor} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <p className={`text-[13px] leading-snug ${n.unread ? 'font-bold text-slate-900' : 'font-semibold text-slate-600'}`}>
-                        {n.title}
+                      <p className={`text-[13px] leading-snug font-bold ${n.resolved ? 'text-slate-500' : 'text-slate-900'}`}>
+                        {n.typeLabel ?? n.type ?? 'Anomaly Alert'}
                       </p>
-                      <button
-                        onClick={() => dismiss(n.id)}
-                        className="shrink-0 text-slate-300 hover:text-slate-500 transition-colors mt-0.5"
-                      >
-                        <X size={12} />
-                      </button>
+                      {!n.resolved && (
+                        <button
+                          onClick={() => dismiss(n.id)}
+                          className="shrink-0 text-slate-300 hover:text-slate-500 transition-colors mt-0.5"
+                          title="Mark reviewed"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
                     </div>
-                    <p className="text-[11.5px] text-slate-400 font-medium mt-0.5 leading-relaxed">{n.desc}</p>
-                    <p className="text-[10.5px] text-slate-300 font-semibold mt-1">{n.time}</p>
+                    <p className={`text-[11.5px] font-medium mt-0.5 leading-relaxed ${n.resolved ? 'text-slate-400' : 'text-slate-500'}`}>
+                      {n.title ?? n.description ?? 'Anomaly detected in processed invoice.'}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <p className="text-[10.5px] text-slate-400 font-semibold">
+                        {timeAgo(n.created_at)}
+                      </p>
+                      {n.resolved && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                          Reviewed
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {n.unread && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#5B2E7F] shrink-0 mt-2" />
-                  )}
+                  {!n.resolved && <div className="w-1.5 h-1.5 rounded-full bg-[#5B2E7F] shrink-0 mt-2" />}
                 </div>
               );
             })}

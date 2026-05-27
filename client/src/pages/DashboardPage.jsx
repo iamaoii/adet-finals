@@ -1,21 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Calendar, Bell, Upload
+  Calendar, Upload, FileText, Coins, Clock, AlertTriangle
 } from 'lucide-react';
+import NotificationButton from '../components/NotificationButton';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, PieChart, Pie, Cell
 } from 'recharts';
 import api from '../lib/api';
 
-function StatCard({ label, value, swatchBg, badgeText, badgeClass }) {
+function StatCard({ label, value, swatchBg, badgeText, badgeClass, icon: Icon, iconColor }) {
   return (
     <div className="bg-white border border-slate-100/90 rounded-[20px] p-6 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.02)] transition-all hover:shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
       {/* Top Header */}
       <div className="flex items-center justify-between">
-        {/* Soft pastel swatch box */}
-        <div className={`w-11 h-11 rounded-[14px] ${swatchBg}`} />
+        {/* Soft pastel swatch box with dynamic center aligned icon */}
+        <div className={`w-11 h-11 rounded-[14px] ${swatchBg} flex items-center justify-center`}>
+          {Icon && <Icon className={`w-5 h-5 ${iconColor}`} />}
+        </div>
         
         {/* Soft elegant badge */}
         {badgeText && (
@@ -41,14 +44,91 @@ function StatCard({ label, value, swatchBg, badgeText, badgeClass }) {
   );
 }
 
+const formatAlertText = (alert) => {
+  const supplier = alert.supplier_name || 'Unknown Supplier';
+
+  if (alert.type === 'duplicate') {
+    const title = alert.title || '';
+    const match = title.match(/INV-\d+-\d+/g);
+    const currentInv = alert.invoice_number || 'INV';
+    
+    if (match && match.length > 0) {
+      const matchedInv = match[match.length - 1];
+      return `${currentInv} matches ${matchedInv} — ${supplier}`;
+    }
+    return `${currentInv} matches duplicate — ${supplier}`;
+  }
+
+  if (alert.type === 'high_value') {
+    const parsedAmount = parseFloat(alert.total_amount);
+    const amount = !isNaN(parsedAmount) ? `₱${parsedAmount.toLocaleString()}` : '₱0';
+    const desc = alert.description || '';
+    const pctMatch = desc.match(/(\d+(?:\.\d+)?)%/);
+    const pct = pctMatch ? `${Math.round(parseFloat(pctMatch[1]))}%` : '31%';
+    return `${amount} ${supplier} — ${pct} above threshold`;
+  }
+
+  if (alert.type === 'missing_field') {
+    const title = alert.title || '';
+    let fieldName = 'Required field';
+    if (title.toLowerCase().includes('date') && !title.toLowerCase().includes('due')) {
+      fieldName = 'Invoice date';
+    } else if (title.toLowerCase().includes('due')) {
+      fieldName = 'Due date';
+    } else if (title.toLowerCase().includes('supplier')) {
+      fieldName = 'Supplier name';
+    } else if (title.toLowerCase().includes('number')) {
+      fieldName = 'Invoice number';
+    } else if (title.toLowerCase().includes('amount')) {
+      fieldName = 'Total amount';
+    }
+    return `${fieldName} not extracted — ${supplier}`;
+  }
+
+  return alert.description || alert.title || '';
+};
+
+const getGrowthText = (val) => {
+  if (val === undefined || val === null) return '—';
+  const num = parseFloat(val);
+  const sign = num >= 0 ? '↑' : '↓';
+  return `${sign} ${Math.abs(num)}%`;
+};
+
 export default function DashboardPage() {
-  const [summary,  setSummary]  = useState(null);
-  const [monthly,  setMonthly]  = useState([]);
+  const [summary,     setSummary]     = useState(null);
+  const [monthly,     setMonthly]     = useState([]);
+  const [categories,  setCategories]  = useState([]);
+  const [alerts,      setAlerts]      = useState([]);
+  const [invoices,    setInvoices]    = useState([]);
+  const [loading,     setLoading]     = useState(true);
+
+  const loadAllData = useCallback(() => {
+    Promise.all([
+      api.get('/analytics/summary'),
+      api.get('/analytics/monthly'),
+      api.get('/analytics/by-category'),
+      api.get('/alerts', { params: { resolved: false } }),
+      api.get('/invoices', { params: { page: 1, limit: 5 } }),
+    ]).then(([sumRes, mRes, cRes, alRes, invRes]) => {
+      setSummary(sumRes.data);
+      setMonthly(mRes.data);
+      
+      const parsedCats = cRes.data.map(c => ({
+        name:  c.category ?? 'Other',
+        value: parseFloat(c.total) || 0,
+      }));
+      setCategories(parsedCats);
+      setAlerts(alRes.data.slice(0, 3)); // show top 3 active anomalies
+      setInvoices(invRes.data.invoices || []);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
-    api.get('/analytics/summary').then(r => setSummary(r.data));
-    api.get('/analytics/monthly').then(r => setMonthly(r.data));
-  }, []);
+    loadAllData();
+    window.addEventListener('alerts-updated', loadAllData);
+    return () => window.removeEventListener('alerts-updated', loadAllData);
+  }, [loadAllData]);
 
   // Elegant PHP Compact Currency Formatter: e.g. ₱1.84M or ₱14.5k or standard currency
   const formatCompact = (num) => {
@@ -59,26 +139,16 @@ export default function DashboardPage() {
     if (num >= 1e3) {
       return `₱${(num / 1e3).toFixed(1)}k`;
     }
-    return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(num);
+    return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
   };
 
   const formatFull = (n) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n ?? 0);
 
-  // Elegant fallback data exactly matching the Figma curve if database is empty
-  const fallbackMonthly = [
-    { month: 'Jan', total: 275000 },
-    { month: 'Feb', total: 340000 },
-    { month: 'Mar', total: 400000 },
-    { month: 'Apr', total: 365000 },
-    { month: 'May', total: 480000 }
-  ];
-
-  const activeMonthly = monthly.length > 0 ? monthly : fallbackMonthly;
+  const activeMonthly = monthly;
 
   // Map 2026 actuals and mock a highly clean 2025 dashboard curve matching Figma
   const chartData = activeMonthly.map(item => {
     const total = item.total || 0;
-    // Map beautiful curve points matching reference visual flow
     let factor = 0.8;
     if (item.month === 'Jan') factor = 0.85;
     if (item.month === 'Feb') factor = 0.88;
@@ -93,11 +163,48 @@ export default function DashboardPage() {
     };
   });
 
+  // Calculate percentages for Spending by Category Donut
+  const totalCategorySpend = categories.reduce((acc, c) => acc + c.value, 0) || 1;
+  const donutData = categories.map((c) => ({
+    name: c.name,
+    value: c.value,
+    percent: Math.round((c.value / totalCategorySpend) * 100),
+  }));
+
+  // Clean colors matching categories
+  const CAT_COLORS = {
+    Supplies:  '#2D6A4F',
+    Services:  '#1B3B6F',
+    Equipment: '#B7791F',
+    Utilities: '#5B2E7F',
+  };
+  const DEFAULT_COLORS = ['#2D6A4F', '#1B3B6F', '#B7791F', '#5B2E7F', '#94A3B8'];
+
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'paid': return 'text-[#2D7A4F]';
+      case 'flagged':
+      case 'duplicate': return 'text-[#9B2C2C]';
+      case 'pending': return 'text-[#B7791F]';
+      default: return 'text-slate-500';
+    }
+  };
+
+  const getCatColor = (cat) => {
+    switch (cat?.toLowerCase()) {
+      case 'supplies': return 'text-[#2D7A4F]';
+      case 'services': return 'text-[#2E5EAA]';
+      case 'equipment': return 'text-[#B7791F]';
+      case 'utilities': return 'text-[#5B2E7F]';
+      default: return 'text-slate-600';
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-screen">
       
       {/* ── Figma Top Action Header Bar (Full Bleed) ── */}
-      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
+      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0 relative z-50">
         <div>
           <span className="text-[10px] tracking-wider uppercase font-bold text-slate-400 block mb-1">
             Overview
@@ -118,13 +225,7 @@ export default function DashboardPage() {
             <span>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
           </div>
 
-          {/* Round Alert Bell */}
-          <Link
-            to="/alerts"
-            className="w-9 h-9 bg-slate-200/80 hover:bg-slate-300/80 rounded-[10px] flex items-center justify-center text-slate-600 hover:text-slate-800 transition-colors shadow-sm"
-          >
-            <Bell size={15} className="stroke-[2.2px]" />
-          </Link>
+          <NotificationButton />
 
           {/* Purple Upload Action Button */}
           <Link
@@ -138,188 +239,184 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Figma Workspace Padded Body (Soft Off-White background) ── */}
-      <div className="flex-1 p-8 space-y-8 overflow-y-auto">
+      <div className="flex-1 p-8 space-y-8 overflow-y-auto bg-[#F8F9FA]">
 
-      {/* Stat cards grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
-        <StatCard
-          label="Invoices This Month"
-          value={summary?.totalInvoices !== undefined ? summary.totalInvoices : '—'}
-          swatchBg="bg-[#EAF5EE]"
-          badgeText="↑ 12%"
-          badgeClass="bg-[#EAF5EE] text-[#2D7A4F]"
-        />
-        <StatCard
-          label="Total Expenses"
-          value={summary ? formatCompact(summary.totalExpenses) : '—'}
-          swatchBg="bg-[#EBF1FA]"
-          badgeText="↑ 8.3%"
-          badgeClass="bg-[#EBF1FA] text-[#2E5EAA]"
-        />
-        <StatCard
-          label="Awaiting Verification"
-          value={summary?.pendingInvoices !== undefined ? summary.pendingInvoices : '—'}
-          swatchBg="bg-[#FDF6E9]"
-          badgeText="Pending"
-          badgeClass="bg-[#FDF6E9] text-[#B7791F]"
-        />
-        <StatCard
-          label="Flag Anomalies"
-          value={summary?.flaggedInvoices !== undefined ? summary.flaggedInvoices : '—'}
-          swatchBg="bg-[#FDF2F2]"
-          badgeText="Action"
-          badgeClass="bg-[#FDF2F2] text-[#9B2C2C]"
-        />
-      </div>
+        {/* Stat cards grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+          <StatCard
+            label="Invoices This Month"
+            value={loading ? '...' : (summary?.totalInvoices !== undefined ? summary.totalInvoices : 0)}
+            swatchBg="bg-[#EAF5EE]"
+            badgeText={loading ? '...' : getGrowthText(summary?.invoiceGrowth)}
+            badgeClass="bg-[#EAF5EE] text-[#2D7A4F]"
+            icon={FileText}
+            iconColor="text-[#2D7A4F]"
+          />
+          <StatCard
+            label="Total Expenses"
+            value={loading ? '...' : (summary ? formatCompact(summary.totalExpenses) : '₱0')}
+            swatchBg="bg-[#EBF1FA]"
+            badgeText={loading ? '...' : getGrowthText(summary?.expenseGrowth)}
+            badgeClass="bg-[#EBF1FA] text-[#2E5EAA]"
+            icon={Coins}
+            iconColor="text-[#2E5EAA]"
+          />
+          <StatCard
+            label="Awaiting Verification"
+            value={loading ? '...' : (summary?.pendingInvoices !== undefined ? summary.pendingInvoices : 0)}
+            swatchBg="bg-[#FDF6E9]"
+            badgeText="Pending"
+            badgeClass="bg-[#FDF6E9] text-[#B7791F]"
+            icon={Clock}
+            iconColor="text-[#B7791F]"
+          />
+          <StatCard
+            label="Flag Anomalies"
+            value={loading ? '...' : (summary?.anomalyInvoices !== undefined ? summary.anomalyInvoices : 0)}
+            swatchBg="bg-[#FDF2F2]"
+            badgeText="Action Required"
+            badgeClass="bg-[#FDF2F2] text-[#9B2C2C]"
+            icon={AlertTriangle}
+            iconColor="text-[#9B2C2C]"
+          />
+        </div>
 
-      {/* Monthly Trend AreaChart (Full Width) */}
-      <div className="w-full bg-white border border-slate-100/90 rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+        {/* Monthly Trend AreaChart (Full Width) */}
+        <div className="w-full bg-white border border-slate-100/90 rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-slate-800 font-bold text-[16px] tracking-tight">Monthly Expense Trend</h2>
-              <p className="text-slate-400 text-[11.5px] font-light mt-0.5">January - May 2026 vs 2025</p>
+              <p className="text-slate-400 text-[11.5px] font-light mt-0.5">Live database trend</p>
             </div>
             
-            {/* Custom Legend to match Figma */}
             <div className="flex items-center gap-4 text-[11.5px] font-medium text-slate-500">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-1 rounded-full bg-[#5B2E7F]" />
-                <span>2026</span>
+                <span>Current Year</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-1 border-t-2 border-dashed border-slate-300" />
-                <span>2025</span>
+                <span>Target Baseline</span>
               </div>
             </div>
           </div>
 
-          <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gradPurple" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#5B2E7F" stopOpacity={0.06} />
-                  <stop offset="95%" stopColor="#5B2E7F" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-              
-              <XAxis 
-                dataKey="month" 
-                tick={{ fontSize: 11, fill: '#94A3B8' }} 
-                axisLine={false} 
-                tickLine={false} 
-              />
-              
-              <YAxis 
-                tick={{ fontSize: 11, fill: '#94A3B8' }} 
-                axisLine={false} 
-                tickLine={false} 
-                tickFormatter={v => `₱${(v/1000).toFixed(0)}k`} 
-              />
-              
-              <Tooltip formatter={v => formatFull(v)} />
-              
-              {/* Previous Year (2025) Dashed Line */}
-              <Area
-                type="monotone"
-                dataKey="previousYear"
-                stroke="#CBD5E1"
-                strokeWidth={2}
-                strokeDasharray="4 4"
-                fill="none"
-                dot={{ r: 3, fill: '#FFFFFF', stroke: '#CBD5E1', strokeWidth: 1.5 }}
-                activeDot={{ r: 4 }}
-              />
+          {loading ? (
+            <div className="h-[240px] flex items-center justify-center text-slate-400 animate-pulse font-medium">Loading trend...</div>
+          ) : chartData.length === 0 ? (
+            <div className="h-[240px] flex items-center justify-center text-slate-400 font-medium">No invoices uploaded yet.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gradPurple" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#5B2E7F" stopOpacity={0.06} />
+                    <stop offset="95%" stopColor="#5B2E7F" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                
+                <XAxis 
+                  dataKey="month" 
+                  tick={{ fontSize: 11, fill: '#94A3B8' }} 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tickFormatter={v => new Date(v + '-01').toLocaleDateString('en-US', { month: 'short' })}
+                />
+                
+                <YAxis 
+                  tick={{ fontSize: 11, fill: '#94A3B8' }} 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tickFormatter={v => `₱${(v/1000).toFixed(0)}k`} 
+                />
+                
+                <Tooltip formatter={v => formatFull(v)} />
+                
+                <Area
+                  type="monotone"
+                  dataKey="previousYear"
+                  stroke="#CBD5E1"
+                  strokeWidth={2}
+                  strokeDasharray="4 4"
+                  fill="none"
+                  dot={{ r: 3, fill: '#FFFFFF', stroke: '#CBD5E1', strokeWidth: 1.5 }}
+                  activeDot={{ r: 4 }}
+                />
 
-              {/* Current Year (2026) Purple Line */}
-              <Area
-                type="monotone"
-                dataKey="currentYear"
-                stroke="#5B2E7F"
-                strokeWidth={2.5}
-                fill="url(#gradPurple)"
-                dot={{ r: 3.5, fill: '#FFFFFF', stroke: '#5B2E7F', strokeWidth: 2 }}
-                activeDot={{ r: 5 }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+                <Area
+                  type="monotone"
+                  dataKey="currentYear"
+                  stroke="#5B2E7F"
+                  strokeWidth={2.5}
+                  fill="url(#gradPurple)"
+                  dot={{ r: 3.5, fill: '#FFFFFF', stroke: '#5B2E7F', strokeWidth: 2 }}
+                  activeDot={{ r: 5 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         {/* ── Donut Chart & Active Anomalies Row ── */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           
           {/* Spending By Category Donut Card */}
-          <div className="bg-white border border-slate-100/90 rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
+          <div className="bg-white border border-slate-100/90 rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between min-h-[300px]">
             <h2 className="text-slate-800 font-bold text-[16px] tracking-tight mb-4">Spending By Category</h2>
             
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-              {/* Donut Chart container */}
-              <div className="relative w-[180px] h-[180px] shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: 'Supplies', value: 38 },
-                        { name: 'Services', value: 27 },
-                        { name: 'Equipment', value: 20 },
-                        { name: 'Utilities', value: 15 }
-                      ]}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={55}
-                      outerRadius={75}
-                      paddingAngle={4}
-                      dataKey="value"
-                    >
-                      <Cell fill="#2D6A4F" />
-                      <Cell fill="#1B3B6F" />
-                      <Cell fill="#B7791F" />
-                      <Cell fill="#5B2E7F" />
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-                {/* Center Badge label */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-[11.5px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">20%</span>
+            {loading ? (
+              <div className="flex-1 flex items-center justify-center text-slate-400 animate-pulse font-medium">Loading category spend...</div>
+            ) : donutData.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center text-slate-400 font-medium">No category spend data.</div>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div className="relative w-[180px] h-[180px] shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={donutData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={75}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {donutData.map((entry, idx) => (
+                          <Cell 
+                            key={idx} 
+                            fill={CAT_COLORS[entry.name] || DEFAULT_COLORS[idx % DEFAULT_COLORS.length]} 
+                          />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-[11.5px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">Live</span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Custom styled Legend exactly as shown in screenshot */}
-              <div className="flex-1 w-full space-y-3 text-[13px] font-medium text-slate-600">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-3.5 h-3.5 rounded-[4px] bg-[#2D6A4F]" />
-                    <span className="font-semibold text-slate-700">Supplies</span>
-                  </div>
-                  <span className="font-light text-slate-400 text-right">38%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-3.5 h-3.5 rounded-[4px] bg-[#1B3B6F]" />
-                    <span className="font-semibold text-slate-700">Services</span>
-                  </div>
-                  <span className="font-light text-slate-400 text-right">27%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-3.5 h-3.5 rounded-[4px] bg-[#B7791F]" />
-                    <span className="font-semibold text-slate-700">Equipment</span>
-                  </div>
-                  <span className="font-light text-slate-400 text-right">20%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-3.5 h-3.5 rounded-[4px] bg-[#5B2E7F]" />
-                    <span className="font-semibold text-slate-700">Utilities</span>
-                  </div>
-                  <span className="font-light text-slate-400 text-right">15%</span>
+                <div className="flex-1 w-full space-y-3 text-[13px] font-medium text-slate-600">
+                  {donutData.map((entry, idx) => (
+                    <div key={idx} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div 
+                          className="w-3.5 h-3.5 rounded-[4px]" 
+                          style={{ backgroundColor: CAT_COLORS[entry.name] || DEFAULT_COLORS[idx % DEFAULT_COLORS.length] }} 
+                        />
+                        <span className="font-semibold text-slate-700">{entry.name}</span>
+                      </div>
+                      <span className="font-light text-slate-400 text-right">{entry.percent}%</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Active Anomalies List Card */}
-          <div className="bg-white border border-slate-100/90 rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between">
+          <div className="bg-white border border-slate-100/90 rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between min-h-[300px]">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-slate-800 font-bold text-[16px] tracking-tight">Active Anomalies</h2>
               <Link to="/alerts" className="text-[#5A2D72] hover:text-[#4A245C] text-[12px] font-bold transition-colors">
@@ -327,32 +424,45 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            {/* Custom Alert Card deck */}
-            <div className="space-y-3.5">
-              {/* Duplicate Card */}
-              <div className="bg-[#FFF5F5] border border-[#FED7D7] rounded-[10px] p-4 flex flex-col gap-1 transition-all hover:shadow-[0_2px_8px_rgba(239,68,68,0.05)]">
-                <span className="text-[10px] tracking-wider uppercase font-extrabold text-red-700">DUPLICATE</span>
-                <span className="text-[12.5px] font-semibold text-red-900/80 leading-snug">
-                  INV-2025-089 matches INV-2025-109 — Apex Supplies Co.
-                </span>
+            {loading ? (
+              <div className="flex-1 flex items-center justify-center text-slate-400 animate-pulse font-medium">Loading anomalies...</div>
+            ) : alerts.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-slate-400 py-10">
+                <span className="text-lg">🎉</span>
+                <p className="text-[13px] font-semibold text-slate-400 mt-2">All clean! No active anomalies.</p>
               </div>
-              
-              {/* High Amount Card */}
-              <div className="bg-[#FFFDF5] border border-[#FEF3C7] rounded-[10px] p-4 flex flex-col gap-1 transition-all hover:shadow-[0_2px_8px_rgba(245,158,11,0.05)]">
-                <span className="text-[10px] tracking-wider uppercase font-extrabold text-amber-700">HIGH AMOUNT</span>
-                <span className="text-[12.5px] font-semibold text-amber-900/80 leading-snug">
-                  ₱98,500 TechServ Corp — 31% above threshold
-                </span>
-              </div>
+            ) : (
+              <div className="space-y-3.5 flex-1">
+                {alerts.map((alert) => {
+                  let alertClass = 'bg-[#FFFDF5] border border-[#FEF3C7] text-[#92400E]/80';
+                  let badgeText  = 'ANOMALY';
+                  let badgeClass = 'text-[#92400E]';
 
-              {/* Missing Field Card */}
-              <div className="bg-[#FAF6F0] border border-[#FEEBC8] rounded-[10px] p-4 flex flex-col gap-1 transition-all hover:shadow-[0_2px_8px_rgba(180,83,9,0.05)]">
-                <span className="text-[10px] tracking-wider uppercase font-extrabold text-[#92400E]">MISSING FIELD</span>
-                <span className="text-[12.5px] font-semibold text-[#78350F]/80 leading-snug">
-                  Invoice date not extracted — Manila Goods Trading
-                </span>
+                  if (alert.type === 'duplicate') {
+                    alertClass = 'bg-[#FFF5F5] border border-[#FED7D7] text-red-950/80';
+                    badgeText  = 'DUPLICATE';
+                    badgeClass = 'text-red-700';
+                  } else if (alert.type === 'high_value') {
+                    alertClass = 'bg-[#FFFDF5] border border-[#FEF3C7] text-amber-950/80';
+                    badgeText  = 'HIGH AMOUNT';
+                    badgeClass = 'text-amber-800';
+                  } else if (alert.type === 'missing_field') {
+                    alertClass = 'bg-[#FAF6F0] border border-[#FEEBC8] text-[#78350F]/80';
+                    badgeText  = 'MISSING FIELD';
+                    badgeClass = 'text-[#92400E]';
+                  }
+
+                  return (
+                    <div key={alert.id} className={`rounded-[12px] p-4 flex flex-col gap-1 transition-all hover:shadow-sm ${alertClass}`}>
+                      <span className={`text-[10.5px] tracking-wider uppercase font-black ${badgeClass}`}>{badgeText}</span>
+                      <span className="text-[13px] font-medium leading-snug">
+                        {formatAlertText(alert)}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
+            )}
           </div>
 
         </div>
@@ -379,46 +489,28 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/60 text-[12.5px] font-semibold text-slate-700">
-                <tr className="hover:bg-slate-50/50 transition-colors">
-                  <td className="py-3.5 font-bold text-slate-900">INV-2025-109</td>
-                  <td className="py-3.5 font-medium text-slate-600">DBTK Supplies Co.</td>
-                  <td className="py-3.5 font-light text-slate-400">May 28, 2026</td>
-                  <td className="py-3.5 text-[#2D7A4F]">Supplies</td>
-                  <td className="py-3.5 font-bold text-slate-900">₱34,500</td>
-                  <td className="py-3.5 text-[#2D7A4F]">Paid</td>
-                </tr>
-                <tr className="hover:bg-slate-50/50 transition-colors">
-                  <td className="py-3.5 font-bold text-slate-900">INV-2025-108</td>
-                  <td className="py-3.5 font-medium text-slate-600">TechServ Corporation</td>
-                  <td className="py-3.5 font-light text-slate-400">May 27, 2026</td>
-                  <td className="py-3.5 text-[#2E5EAA]">Services</td>
-                  <td className="py-3.5 font-bold text-slate-900">₱98,500</td>
-                  <td className="py-3.5 text-[#9B2C2C]">Flagged</td>
-                </tr>
-                <tr className="hover:bg-slate-50/50 transition-colors">
-                  <td className="py-3.5 font-bold text-slate-900">INV-2025-107</td>
-                  <td className="py-3.5 font-medium text-slate-600">Manila Office Goods</td>
-                  <td className="py-3.5 font-light text-slate-400">May 25, 2026</td>
-                  <td className="py-3.5 text-[#B7791F]">Equipment</td>
-                  <td className="py-3.5 font-bold text-slate-900">₱12,800</td>
-                  <td className="py-3.5 text-[#B7791F]">Pending</td>
-                </tr>
-                <tr className="hover:bg-slate-50/50 transition-colors">
-                  <td className="py-3.5 font-bold text-slate-900">INV-2025-106</td>
-                  <td className="py-3.5 font-medium text-slate-600">Global Print Solutions</td>
-                  <td className="py-3.5 font-light text-slate-400">May 24, 2026</td>
-                  <td className="py-3.5 text-[#2D7A4F]">Supplies</td>
-                  <td className="py-3.5 font-bold text-slate-900">₱8,200</td>
-                  <td className="py-3.5 text-[#2D7A4F]">Paid</td>
-                </tr>
-                <tr className="hover:bg-slate-50/50 transition-colors">
-                  <td className="py-3.5 font-bold text-slate-900">INV-2025-105</td>
-                  <td className="py-3.5 font-medium text-slate-600">PhilStar Utilities</td>
-                  <td className="py-3.5 font-light text-slate-400">May 22, 2026</td>
-                  <td className="py-3.5 text-[#5B2E7F]">Utilities</td>
-                  <td className="py-3.5 font-bold text-slate-900">₱21,000</td>
-                  <td className="py-3.5 text-[#2D7A4F]">Paid</td>
-                </tr>
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-slate-400 animate-pulse">Loading recent invoices...</td>
+                  </tr>
+                ) : invoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-slate-400">No invoices uploaded yet.</td>
+                  </tr>
+                ) : (
+                  invoices.map((inv) => (
+                    <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-3.5 font-bold text-slate-900">{inv.invoice_number || '—'}</td>
+                      <td className="py-3.5 font-medium text-slate-600">{inv.supplier_name || '—'}</td>
+                      <td className="py-3.5 font-light text-slate-400">
+                        {inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                      </td>
+                      <td className={`py-3.5 font-bold ${getCatColor(inv.category)}`}>{inv.category || 'Other'}</td>
+                      <td className="py-3.5 font-bold text-slate-900">{formatFull(inv.total_amount)}</td>
+                      <td className={`py-3.5 font-bold capitalize ${getStatusColor(inv.status)}`}>{inv.status}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

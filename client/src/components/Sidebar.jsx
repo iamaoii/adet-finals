@@ -49,15 +49,15 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className={`relative flex flex-col h-screen bg-white border-r border-slate-100 py-7 shrink-0 font-sans justify-between transition-all duration-300 ease-in-out z-20 ${isExpanded ? 'w-[250px] px-5' : 'w-[80px] px-3'}`}>
+    <aside className={`relative flex flex-col h-screen bg-white border-r border-slate-100 py-7 shrink-0 font-sans justify-between transition-all duration-300 ease-in-out z-[100] ${isExpanded ? 'w-[250px] px-5' : 'w-[80px] px-3'}`}>
       
       {/* Toggle Button */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="absolute -right-3.5 top-9 bg-white border border-slate-200 rounded-full p-1.5 shadow-sm text-slate-400 hover:text-[#5B2E7F] hover:border-slate-300 transition-all z-50 flex items-center justify-center"
+        className="absolute -right-4 top-9 flex h-8 w-8 items-center justify-center rounded-full border border-[#E9D5FF] bg-[#FAF5FF] shadow-sm text-[#5B2E7F] hover:bg-[#F3E8FF] hover:scale-105 active:scale-95 transition-all z-[100]"
         title={isExpanded ? "Collapse Sidebar" : "Expand Sidebar"}
       >
-        {isExpanded ? <ChevronLeft size={14} strokeWidth={2.5} /> : <ChevronRight size={14} strokeWidth={2.5} />}
+        {isExpanded ? <ChevronLeft size={16} strokeWidth={2.5} /> : <ChevronRight size={16} strokeWidth={2.5} />}
       </button>
 
       {/* Top Section */}
