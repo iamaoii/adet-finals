@@ -3,6 +3,7 @@ import 'express-async-errors';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { testConnection } from './config/db.js';
 
 import authRoutes    from './routes/auth.routes.js';
 import invoiceRoutes from './routes/invoice.routes.js';
@@ -34,11 +35,16 @@ app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Da
 /* ─── Error handler (must be last) ───────────────── */
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   if (!process.env.DATABASE_URL) {
-    console.log(`⚠️  WARNING: DATABASE_URL is not set in your .env file.`);
-    console.log(`   Database-related endpoints (Auth, Invoices, Alerts, Analytics) will fail with 'Internal server error'.`);
-    console.log(`   Please create a 'server/.env' file from 'server/.env.example' and configure it.`);
+    console.warn(`⚠️  WARNING: DATABASE_URL is not set in .env — DB endpoints will fail.`);
+  } else {
+    try {
+      await testConnection();
+    } catch (err) {
+      console.error('❌ Could not connect to Supabase:', err.message);
+      console.error('   Check your DATABASE_URL and SSL settings in server/.env');
+    }
   }
 });

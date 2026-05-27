@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FileSearch, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 
+// Import custom WebP logo assets
+import logoLeftBg from '../assets/logo/logo_1.webp';  // Icon for dark background
+import logoRightBg from '../assets/logo/logo_2.webp'; // Icon for white background
+
 export default function LoginPage() {
   const { login } = useAuth();
-  const navigate  = useNavigate();
-  const [form, setForm]       = useState({ email: '', password: '' });
-  const [showPw, setShowPw]   = useState(false);
+  const navigate = useNavigate();
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -26,84 +30,203 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          {/* Logo */}
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-primary-600 flex items-center justify-center">
-              <FileSearch size={20} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-800">InvoiceAI</h1>
-              <p className="text-xs text-slate-400">Smart Invoice Processing</p>
+    <div className="min-h-screen w-full flex flex-col lg:flex-row font-sans">
+
+      {/* ═══════════════════════════════════════════════════
+          LEFT PANE — Dark editorial / brand panel
+      ═══════════════════════════════════════════════════ */}
+      <div
+        className="w-full lg:w-1/2 p-12 lg:p-16 min-h-[600px] lg:min-h-screen relative flex flex-col justify-between overflow-hidden"
+        style={{
+          backgroundColor: '#0D0D0D',
+          backgroundImage: 'radial-gradient(ellipse 70% 55% at 80% 110%, rgba(90, 40, 130, 0.22) 0%, transparent 70%)',
+        }}
+      >
+        {/* ── Top Logo ── */}
+        <div className="flex items-center gap-4 z-10">
+          <img
+            src={logoLeftBg}
+            alt="InvoiceIQ Icon"
+            className="h-[56px] w-[56px] rounded-[12px] object-contain"
+          />
+          <span 
+            className="text-white tracking-tight leading-none"
+            style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '31px', fontWeight: 700 }}
+          >
+            InvoiceIQ
+          </span>
+        </div>
+
+        {/* ── Centered Hero Copy Group (Perfect vertical balance) ── */}
+        <div className="my-auto py-12 lg:py-16 space-y-8 max-w-[520px] z-10 w-full">
+          {/* Badge */}
+          <div className="flex items-center gap-2.5">
+            <div className="w-5 h-px bg-slate-500" />
+            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">
+              AI-Powered Finance
+            </span>
+          </div>
+
+          {/* Main Headline */}
+          <div
+            className="font-serif text-white tracking-tight leading-[1.18]"
+            style={{ fontSize: 'clamp(36px, 4.4vw, 52px)', fontWeight: 500 }}
+          >
+            <div className="whitespace-nowrap">Smarter invoices,</div>
+            <div className="whitespace-nowrap">
+              <span className="italic font-light text-white">effortlessly</span> managed.
             </div>
           </div>
 
-          <h2 className="text-2xl font-bold text-slate-800 mb-1">Sign in</h2>
-          <p className="text-sm text-slate-500 mb-6">Enter your credentials to access the dashboard.</p>
+          {/* Sub-copy */}
+          <p className="text-[13.5px] leading-[1.75] text-slate-400 font-light">
+            Upload receipts and invoices — our OCR engine extracts every field
+            automatically, flags anomalies, and gives you a live view of your finances.
+          </p>
 
-          <form id="login-form" onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="login-email" className="label">Email</label>
+          {/* Feature list — Inline layout exactly like Figma */}
+          <div className="pt-2 space-y-4">
+            {[
+              { label: 'OCR Extraction',      desc: 'scan any invoice in under 2 seconds' },
+              { label: 'Anomaly Detection',   desc: 'duplicates flagged instantly'         },
+              { label: 'Analytics Dashboard', desc: 'real-time spending visibility'        },
+            ].map(({ label, desc }) => (
+              <div key={label} className="text-[13.5px] leading-relaxed flex items-center gap-3">
+                <span className="font-semibold text-white tracking-wide">{label}</span>
+                <span className="text-slate-500 font-light">—</span>
+                <span className="text-slate-400 font-light">{desc}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Footer Quote (cleanly anchored at the absolute bottom) ── */}
+        <div className="border-l border-purple-800/60 pl-4 py-0.5 z-10 max-w-[360px] hidden lg:block">
+          <p className="text-[11.5px] italic text-slate-500 leading-relaxed font-light">
+            {"\"Automation is not about replacing people — it's about giving them time back to do what matters.\""}
+          </p>
+          <p className="text-[9.5px] font-semibold uppercase tracking-wider text-slate-600 mt-1">
+            Kolina &amp; Davenport, 2017
+          </p>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════
+          RIGHT PANE — Sign-in form
+      ═══════════════════════════════════════════════════ */}
+      <div className="w-full lg:w-1/2 bg-white flex items-center justify-center p-12 lg:p-16 min-h-[580px] lg:min-h-screen relative">
+        <div className="w-full max-w-[400px] -mt-10 lg:-mt-14">
+          
+          {/* Brand logo — horizontal, left-aligned on top of the heading */}
+          <div className="flex items-center gap-3.5 z-10 justify-start mb-10 lg:mb-12">
+            <img
+              src={logoRightBg}
+              alt="InvoiceIQ Icon"
+              className="h-[56px] w-[56px] rounded-[12px] object-contain"
+            />
+            <span 
+              className="text-slate-950 tracking-tight leading-none"
+              style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '31px', fontWeight: 700 }}
+            >
+              InvoiceIQ
+            </span>
+          </div>
+
+          {/* Heading block — left-aligned */}
+          <div className="space-y-1 mb-6">
+            <h1 className="font-serif font-bold text-slate-900 tracking-tight text-[30px]">
+              Welcome Back
+            </h1>
+            <p className="text-[13px] text-slate-400 font-light">
+              Sign in with your employee ID and password.
+            </p>
+          </div>
+
+          {/* Form */}
+          <form id="login-form" onSubmit={handleSubmit} className="space-y-[18px]">
+
+            {/* Email */}
+            <div className="space-y-1.5">
+              <label htmlFor="login-email" className="block text-[13px] font-medium text-slate-700">
+                Email
+              </label>
               <input
                 id="login-email"
                 type="email"
-                className="input"
-                placeholder="you@example.com"
+                placeholder="Enter your email"
                 value={form.email}
                 onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
                 required
+                className="w-full px-3.5 py-[11px] rounded-md border border-slate-200 text-[13.5px] text-slate-800 placeholder-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-purple-600 focus:border-purple-600 transition-all"
               />
             </div>
 
-            <div>
-              <label htmlFor="login-password" className="label">Password</label>
+            {/* Password */}
+            <div className="space-y-1.5">
+              <label htmlFor="login-password" className="block text-[13px] font-medium text-slate-700">
+                Password
+              </label>
               <div className="relative">
                 <input
                   id="login-password"
                   type={showPw ? 'text' : 'password'}
-                  className="input pr-10"
-                  placeholder="••••••••"
+                  placeholder="Enter your password"
                   value={form.password}
                   onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
                   required
+                  className="w-full pl-3.5 pr-11 py-[11px] rounded-md border border-slate-200 text-[13.5px] text-slate-800 placeholder-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-purple-600 focus:border-purple-600 transition-all"
                 />
                 <button
                   type="button"
                   id="toggle-password-btn"
                   onClick={() => setShowPw(p => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                 >
-                  {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
 
+            {/* Remember me */}
+            <div className="flex items-center gap-2">
+              <input
+                id="remember-me"
+                type="checkbox"
+                className="w-[14px] h-[14px] rounded-sm border border-slate-300 accent-[#5B2E7F] cursor-pointer"
+              />
+              <label htmlFor="remember-me" className="text-[13px] text-slate-500 cursor-pointer select-none font-light">
+                Remember me
+              </label>
+            </div>
+
+            {/* Sign In Button */}
             <button
               id="login-submit-btn"
               type="submit"
               disabled={loading}
-              className="btn-primary w-full justify-center py-2.5"
+              className="w-full py-[13px] rounded-md bg-[#5B2E7F] hover:bg-[#4A2568] active:bg-[#3D1F55] text-white text-[14px] font-semibold tracking-wide transition-colors duration-150 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-purple-900/20"
             >
-              {loading ? 'Signing in…' : 'Sign in'}
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/25 border-t-white rounded-full animate-spin" />
+                  <span>Signing In…</span>
+                </>
+              ) : (
+                'Sign In'
+              )}
             </button>
           </form>
 
-          <p className="text-center text-sm text-slate-500 mt-6">
+          {/* Register link */}
+          <p className="text-[12.5px] text-slate-400 font-light mt-5">
             Don&apos;t have an account?{' '}
-            <Link to="/register" className="text-primary-600 font-medium hover:underline">
+            <Link to="/register" className="text-[#5B2E7F] font-semibold hover:underline">
               Register
             </Link>
           </p>
         </div>
-
-        {/* Demo creds hint */}
-        <p className="text-center text-xs text-primary-200 mt-4 opacity-70">
-          Demo: admin@demo.com / password123
-        </p>
       </div>
+
     </div>
   );
 }
