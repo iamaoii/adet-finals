@@ -439,24 +439,6 @@ async function runAnomalyChecks(invoice) {
         message:     `Duplicate of ${dupe.invoice_number || dupe.id}`,
         description: meta.descriptionFn(dupe.invoice_number || dupe.id),
       });
-
-      // Symmetrically flag the existing duplicates in the system as well!
-      for (const d of dupes.rows) {
-        await query(
-          `INSERT INTO alerts (invoice_id, type, risk, type_label, message, description)
-           VALUES ($1, 'duplicate', 'high', 'Duplicate Invoice — High Risk', $2, $3)
-           ON CONFLICT (invoice_id, type)
-           DO UPDATE SET message = EXCLUDED.message,
-                         description = EXCLUDED.description,
-                         resolved = FALSE`,
-          [
-            d.id,
-            `Duplicate of ${invoice.invoice_number || invoice.id}`,
-            `This invoice appears to be a duplicate of invoice ${invoice.invoice_number || invoice.id}. Possible duplicate payment risk.`
-          ]
-        );
-        await query(`UPDATE invoices SET status = 'duplicate' WHERE id = $1`, [d.id]);
-      }
     }
   }
 
