@@ -59,6 +59,7 @@ export const sendVerificationEmail = async (toEmail, code) => {
         connectionTimeout: 5000, // 5 seconds connection timeout
         socketTimeout: 5000,     // 5 seconds socket inactivity timeout
         greetingTimeout: 5000,   // 5 seconds greeting timeout
+        family: 4                // Force IPv4 ONLY (completely bypasses IPv6 ENETUNREACH errors!)
       });
       await transporter.sendMail(mailOptions);
       console.log(`✉️ [SMTP] Verification email sent to ${toEmail} successfully.`);
