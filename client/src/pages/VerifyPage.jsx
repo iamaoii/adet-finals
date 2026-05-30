@@ -15,7 +15,8 @@ export default function VerifyPage() {
   // Retrieve email passed from login/register, or allow manual entry if accessed directly
   const initialEmail = location.state?.email || '';
   const [email, setEmail] = useState(initialEmail);
-  const [code, setCode] = useState('');
+  const [fallbackCode, setFallbackCode] = useState(location.state?.fallbackCode || '');
+  const [code, setCode] = useState(location.state?.fallbackCode || ''); // Initialize code directly
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -59,8 +60,14 @@ export default function VerifyPage() {
 
     setResending(true);
     try {
-      await resendVerification(email);
-      toast.success('A new temporary key has been sent to your email inbox!');
+      const res = await resendVerification(email);
+      if (res.fallbackCode) {
+        setFallbackCode(res.fallbackCode);
+        setCode(res.fallbackCode); // Directly set code on resend success
+        toast.success('Sandbox Mode: Verification bypass code generated!');
+      } else {
+        toast.success('A new temporary key has been sent to your email inbox!');
+      }
       setCountdown(60); // 60-second cooldown
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to resend code');
@@ -184,6 +191,32 @@ export default function VerifyPage() {
 
           {/* Form */}
           <form id="verify-form" onSubmit={handleSubmit} className="space-y-[18px]">
+
+            {/* Professor Sandbox Bypass Banner */}
+            {fallbackCode && (
+              <div 
+                className="p-4 rounded-lg flex flex-col gap-2 mb-4 animate-[fadeIn_0.3s_ease-out]"
+                style={{
+                  backgroundColor: '#FAF5FF',
+                  border: '1px solid #E9D5FF',
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+                  <span className="text-[11px] font-semibold text-purple-900 uppercase tracking-wider">
+                    🎓 Professor Sandbox Bypass
+                  </span>
+                </div>
+                <p className="text-[12px] leading-relaxed text-purple-700 font-light">
+                  Outbound email SMTP port is blocked by your cloud provider (Render free tier). 
+                  Use the generated code below to activate your account for presentation and testing:
+                </p>
+                <div className="flex items-center justify-between bg-white border border-purple-100 px-3 py-1.5 rounded-md mt-1">
+                  <span className="text-[11.5px] font-medium text-slate-400">Security Key</span>
+                  <span className="font-mono text-[15px] font-bold text-[#5B2E7F] tracking-[0.2em]">{fallbackCode}</span>
+                </div>
+              </div>
+            )}
 
             {/* Email (readonly if passed, editable otherwise) */}
             <div className="space-y-1.5">

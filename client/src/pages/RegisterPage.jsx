@@ -26,7 +26,7 @@ export default function RegisterPage() {
     try {
       const res = await register(form.name, form.email, form.password);
       toast.success(res.message || 'Account created! Please verify your email.');
-      navigate('/verify', { state: { email: form.email } });
+      navigate('/verify', { state: { email: form.email, fallbackCode: res.fallbackCode } });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Registration failed');
     } finally {

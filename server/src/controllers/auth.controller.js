@@ -43,14 +43,17 @@ export const register = async (req, res) => {
 
   const user = rows[0];
 
-  // Send verification email using SMTP (with console print as fallback)
-  await sendVerificationEmail(email, verificationCode);
+  // Send verification email using SMTP / Resend HTTPS (with console print as fallback)
+  const emailSent = await sendVerificationEmail(email, verificationCode);
 
-  // Return user info and flag indicating verification is required
+  // Return user info and flag indicating verification is required, plus fallback code if email failed
   res.status(201).json({
-    message: 'Registration successful. Please verify your account.',
+    message: emailSent 
+      ? 'Registration successful. Please verify your account.' 
+      : 'Registration successful! (Sandbox Bypass: Email service unavailable, code displayed)',
     requiresVerification: true,
-    email: user.email
+    email: user.email,
+    ...(!emailSent && { fallbackCode: verificationCode })
   });
 };
 
@@ -150,11 +153,14 @@ export const resendVerificationToken = async (req, res) => {
     [verificationCode, user.id]
   );
 
-  // Send verification email using SMTP (with console print as fallback)
-  await sendVerificationEmail(email, verificationCode);
+  // Send verification email using SMTP / Resend HTTPS (with console print as fallback)
+  const emailSent = await sendVerificationEmail(email, verificationCode);
 
   res.status(200).json({
-    message: 'Verification code resent successfully!'
+    message: emailSent 
+      ? 'Verification code resent successfully!' 
+      : 'Verification code generated! (Sandbox Bypass: Email service unavailable, code displayed)',
+    ...(!emailSent && { fallbackCode: verificationCode })
   });
 };
 
