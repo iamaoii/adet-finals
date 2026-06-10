@@ -77,6 +77,16 @@ export default function AnalyticsPage() {
   const [categories,  setCategories]  = useState([]);
   const [summary,     setSummary]     = useState(null);
   const [loading,     setLoading]     = useState(true);
+  const [yAxisWidth,  setYAxisWidth]  = useState(140);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setYAxisWidth(window.innerWidth < 640 ? 80 : 140);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const loadAnalytics = useCallback(() => {
     Promise.all([
@@ -107,28 +117,32 @@ export default function AnalyticsPage() {
     : 0;
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-[#F8F9FA]">
+    <div className="flex-1 flex flex-col min-h-0 bg-[#F8F9FA]">
 
       {/* ── Top Action Header Bar ── */}
-      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0 relative z-50">
+      <div className="bg-white border-b border-slate-100 px-4 sm:px-6 lg:px-8 py-4 flex flex-row items-center justify-between gap-4 shrink-0 relative z-50">
         <div>
-          <span className="text-[10px] tracking-wider uppercase font-bold text-slate-400 block mb-1">
+          <span className="hidden sm:block text-[10px] tracking-wider uppercase font-bold text-slate-400 mb-1">
             Insights
           </span>
-          <h1
-            className="text-slate-900 tracking-tight leading-none"
-            style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '30px', fontWeight: 700 }}
+          <h1 
+            className="text-slate-900 tracking-tight leading-none animate-fade-in text-xl sm:text-2xl lg:text-[30px]"
+            style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700 }}
           >
             Analytics
           </h1>
+          <span className="sm:hidden text-[11px] font-semibold text-slate-400 block mt-1">
+            {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+          </span>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="bg-white border border-slate-200 rounded-[10px] h-9 px-3.5 text-[12.5px] font-semibold text-slate-600 flex items-center gap-2 shadow-sm">
+          {/* Calendar Select Badge */}
+          <div className="hidden sm:flex bg-white border border-slate-200 rounded-[10px] h-9 px-3.5 text-[12.5px] font-semibold text-slate-600 items-center gap-2 shadow-sm">
             <Calendar size={14} className="text-slate-600" />
             <span>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
           </div>
-          <NotificationButton />
+          <NotificationButton className="hidden lg:block" />
           <Link to="/upload" className="bg-[#5A2D72] hover:bg-[#4A245C] active:bg-[#3B1D4A] text-white text-[12.5px] font-semibold rounded-[10px] h-9 px-5 flex items-center justify-center gap-2.5 shadow-[0_1px_3px_rgba(90,45,114,0.15)] transition-all cursor-pointer select-none whitespace-nowrap">
             <Upload size={14} className="stroke-[2.5px] text-white" />
             <span>Upload Invoice</span>
@@ -137,7 +151,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* ── Page Content ── */}
-      <div className="flex-1 p-8 overflow-y-auto">
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
         <div className="w-full max-w-[1200px] mx-auto space-y-6">
 
           {/* ── Stat Cards Row ── */}
@@ -206,7 +220,7 @@ export default function AnalyticsPage() {
                   tick={{ fontSize: 12, fill: '#94a3b8', fontWeight: 600 }}
                   axisLine={false}
                   tickLine={false}
-                  width={140}
+                  width={yAxisWidth}
                 />
                 <Tooltip content={<SupplierTooltip />} cursor={{ fill: 'rgba(241,245,249,0.6)' }} />
                 <Bar dataKey="total" radius={[0, 6, 6, 0]} maxBarSize={52}>
@@ -261,7 +275,7 @@ export default function AnalyticsPage() {
               ) : categories.length === 0 ? (
                 <p className="text-slate-400 text-sm py-10 text-center">No category data yet.</p>
               ) : (
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row items-center gap-4">
                 <div className="shrink-0">
                   <PieChart width={190} height={190}>
                     <Pie

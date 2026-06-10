@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, ChevronLeft, ChevronRight, Calendar, Upload, ChevronDown, Trash2 } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Calendar, Upload, ChevronDown, Trash2, SlidersHorizontal } from 'lucide-react';
 import NotificationButton from '../components/NotificationButton';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
@@ -45,6 +45,7 @@ export default function InvoiceListPage() {
   const [statusOpen, setStatusOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Custom Delete Modal State
   const [deleteId, setDeleteId] = useState(null);
@@ -118,7 +119,7 @@ export default function InvoiceListPage() {
   ];
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-[#F8F9FA] relative">
+    <div className="flex-1 flex flex-col min-h-0 bg-[#F8F9FA] relative">
       
       {/* Click-outside backdrop */}
       {(statusOpen || categoryOpen || dateOpen) && (
@@ -129,25 +130,29 @@ export default function InvoiceListPage() {
       )}
 
       {/* ── Top Header Bar ── */}
-      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0 relative z-50">
+      <div className="bg-white border-b border-slate-100 px-4 sm:px-6 lg:px-8 py-4 flex flex-row items-center justify-between gap-4 shrink-0 relative z-50">
         <div>
-          <span className="text-[10px] tracking-wider uppercase font-bold text-slate-400 block mb-1">
+          <span className="hidden sm:block text-[10px] tracking-wider uppercase font-bold text-slate-400 mb-1">
             Records
           </span>
           <h1 
-            className="text-slate-900 tracking-tight leading-none animate-fade-in"
-            style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '30px', fontWeight: 700 }}
+            className="text-slate-900 tracking-tight leading-none animate-fade-in text-xl sm:text-2xl lg:text-[30px]"
+            style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700 }}
           >
             All Invoices
           </h1>
+          <span className="sm:hidden text-[11px] font-semibold text-slate-400 block mt-1">
+            {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+          </span>
         </div>
         
         <div className="flex items-center gap-3">
-          <div className="bg-white border border-slate-200 rounded-[10px] h-9 px-3.5 text-[12.5px] font-semibold text-slate-600 flex items-center gap-2 shadow-sm">
+          {/* Calendar Select Badge */}
+          <div className="hidden sm:flex bg-white border border-slate-200 rounded-[10px] h-9 px-3.5 text-[12.5px] font-semibold text-slate-600 items-center gap-2 shadow-sm">
             <Calendar size={14} className="text-slate-600" />
             <span>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
           </div>
-          <NotificationButton />
+          <NotificationButton className="hidden lg:block" />
           <Link to="/upload" className="bg-[#5A2D72] hover:bg-[#4A245C] active:bg-[#3B1D4A] text-white text-[12.5px] font-semibold rounded-[10px] h-9 px-5 flex items-center justify-center gap-2.5 shadow-[0_1px_3px_rgba(90,45,114,0.15)] transition-all cursor-pointer select-none whitespace-nowrap">
             <Upload size={14} className="stroke-[2.5px] text-white" />
             <span>Upload Invoice</span>
@@ -156,29 +161,45 @@ export default function InvoiceListPage() {
       </div>
 
       {/* ── Page Content ── */}
-      <div className="flex-1 p-8 overflow-y-auto">
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
         <div className="w-full max-w-[1200px] mx-auto flex flex-col min-h-full space-y-6">
           
           {/* Controls Row */}
           <div className="flex flex-col md:flex-row gap-4 relative z-40">
-            <div className="relative flex-1">
-              <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                className="w-full h-11 pl-11 pr-4 bg-white border border-slate-200 rounded-[12px] text-[13.5px] font-medium text-slate-700 placeholder-slate-400 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus:border-[#5A2D72] transition-all shadow-sm"
-                placeholder="Search supplier, invoice #, amount...."
-                value={search}
-                onChange={e => { setSearch(e.target.value); setPage(1); }}
-              />
+            {/* Search Input & Mobile Filters Toggle */}
+            <div className="flex items-center gap-2 w-full md:flex-1">
+              <div className="relative flex-1">
+                <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  className="w-full h-11 pl-11 pr-4 bg-white border border-slate-200 rounded-[12px] text-[13.5px] font-medium text-slate-700 placeholder-slate-400 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus:border-[#5A2D72] transition-all shadow-sm"
+                  placeholder="Search supplier, invoice #, amount...."
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setPage(1); }}
+                />
+              </div>
+              
+              {/* App-like Mobile Filter Button */}
+              <button
+                onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+                className={`h-11 px-4 border rounded-[12px] text-[13px] font-bold flex items-center gap-2 shadow-sm transition-all cursor-pointer md:hidden select-none ${
+                  mobileFiltersOpen
+                    ? 'bg-[#FAF5FF] border-[#5A2D72]/40 text-[#5B2E7F] ring-2 ring-[#5A2D72]/10'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <SlidersHorizontal size={15} />
+                <span>Filters</span>
+              </button>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className={`${mobileFiltersOpen ? 'grid grid-cols-1 mt-1 p-4 bg-white border border-slate-100/90 rounded-[20px] shadow-[0_4px_20px_rgba(0,0,0,0.03)] w-full' : 'hidden'} md:flex md:flex-wrap md:items-center gap-2 md:w-auto md:bg-transparent md:border-0 md:p-0 md:shadow-none md:mt-0`}>
               
               {/* Custom Status Dropdown */}
-              <div className="relative">
+              <div className="relative w-full sm:w-auto">
                 <button
                   onClick={() => { setStatusOpen(!statusOpen); setCategoryOpen(false); setDateOpen(false); }}
-                  className={`h-11 px-4 bg-white border border-slate-200 rounded-[12px] text-[13px] font-bold text-slate-600 flex items-center justify-between gap-3 shadow-sm hover:bg-slate-50 transition-all cursor-pointer min-w-[130px] ${statusOpen ? 'border-[#5A2D72]/40 ring-2 ring-[#5A2D72]/10' : ''}`}
+                  className={`h-11 px-4 bg-white border border-slate-200 rounded-[12px] text-[13px] font-bold text-slate-600 flex items-center justify-between gap-3 shadow-sm hover:bg-slate-50 transition-all cursor-pointer w-full sm:w-auto sm:min-w-[130px] ${statusOpen ? 'border-[#5A2D72]/40 ring-2 ring-[#5A2D72]/10' : ''}`}
                 >
                   <div className="flex items-center gap-2">
                     {status !== 'All Status' && (
@@ -190,7 +211,7 @@ export default function InvoiceListPage() {
                 </button>
 
                 {statusOpen && (
-                  <div className="absolute right-0 mt-2 w-44 bg-white border border-slate-100 rounded-[12px] shadow-lg py-1.5 z-50 animate-fade-in">
+                  <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-full sm:w-44 bg-white border border-slate-100 rounded-[12px] shadow-lg py-1.5 z-50 animate-fade-in">
                     {statusOptions.map((opt) => (
                       <button
                         key={opt.label}
@@ -210,10 +231,10 @@ export default function InvoiceListPage() {
               </div>
 
               {/* Custom Category Dropdown */}
-              <div className="relative">
+              <div className="relative w-full sm:w-auto">
                 <button
                   onClick={() => { setCategoryOpen(!categoryOpen); setStatusOpen(false); setDateOpen(false); }}
-                  className={`h-11 px-4 bg-white border border-slate-200 rounded-[12px] text-[13px] font-bold text-slate-600 flex items-center justify-between gap-3 shadow-sm hover:bg-slate-50 transition-all cursor-pointer min-w-[150px] ${categoryOpen ? 'border-[#5A2D72]/40 ring-2 ring-[#5A2D72]/10' : ''}`}
+                  className={`h-11 px-4 bg-white border border-slate-200 rounded-[12px] text-[13px] font-bold text-slate-600 flex items-center justify-between gap-3 shadow-sm hover:bg-slate-50 transition-all cursor-pointer w-full sm:w-auto sm:min-w-[150px] ${categoryOpen ? 'border-[#5A2D72]/40 ring-2 ring-[#5A2D72]/10' : ''}`}
                 >
                   <div className="flex items-center gap-2">
                     {category !== 'All Categories' && (
@@ -225,7 +246,7 @@ export default function InvoiceListPage() {
                 </button>
 
                 {categoryOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-[12px] shadow-lg py-1.5 z-50 animate-fade-in">
+                  <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-full sm:w-48 bg-white border border-slate-100 rounded-[12px] shadow-lg py-1.5 z-50 animate-fade-in">
                     {categoryOptions.map((opt) => (
                       <button
                         key={opt.label}
@@ -245,17 +266,17 @@ export default function InvoiceListPage() {
               </div>
 
               {/* Custom Date Dropdown */}
-              <div className="relative">
+              <div className="relative w-full sm:w-auto">
                 <button
                   onClick={() => { setDateOpen(!dateOpen); setStatusOpen(false); setCategoryOpen(false); }}
-                  className={`h-11 px-4 bg-white border border-slate-200 rounded-[12px] text-[13px] font-bold text-slate-600 flex items-center justify-between gap-3 shadow-sm hover:bg-slate-50 transition-all cursor-pointer min-w-[120px] ${dateOpen ? 'border-[#5A2D72]/40 ring-2 ring-[#5A2D72]/10' : ''}`}
+                  className={`h-11 px-4 bg-white border border-slate-200 rounded-[12px] text-[13px] font-bold text-slate-600 flex items-center justify-between gap-3 shadow-sm hover:bg-slate-50 transition-all cursor-pointer w-full sm:w-auto sm:min-w-[120px] ${dateOpen ? 'border-[#5A2D72]/40 ring-2 ring-[#5A2D72]/10' : ''}`}
                 >
                   <span>{date}</span>
                   <ChevronDown size={14} className={`text-slate-400 transition-transform duration-200 ${dateOpen ? 'rotate-180 text-[#5A2D72]' : ''}`} />
                 </button>
 
                 {dateOpen && (
-                  <div className="absolute right-0 mt-2 w-36 bg-white border border-slate-100 rounded-[12px] shadow-lg py-1.5 z-50 animate-fade-in">
+                  <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-full sm:w-36 bg-white border border-slate-100 rounded-[12px] shadow-lg py-1.5 z-50 animate-fade-in">
                     {dateOptions.map((opt) => (
                       <button
                         key={opt.label}
@@ -342,7 +363,7 @@ export default function InvoiceListPage() {
           </div>
 
           {/* Footer & Pagination */}
-          <div className="flex items-center justify-between mt-2 px-1 relative z-10">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-2 px-1 relative z-10">
             <span className="text-[13px] text-slate-400 font-bold">
               Showing {filteredInvoices.length} of {total} invoices
             </span>

@@ -6,7 +6,7 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import logoRightBg from '../assets/logo/logo_2.webp';
 
-export default function Sidebar() {
+export default function Sidebar({ onClose }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(true);
@@ -14,6 +14,7 @@ export default function Sidebar() {
   const handleLogout = () => {
     logout();
     navigate('/login');
+    if (onClose) onClose();
   };
 
   // Get initials for user avatar
@@ -54,7 +55,7 @@ export default function Sidebar() {
       {/* Toggle Button */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="absolute -right-4 top-9 flex h-8 w-8 items-center justify-center rounded-full border border-[#E9D5FF] bg-[#FAF5FF] shadow-sm text-[#5B2E7F] hover:bg-[#F3E8FF] hover:scale-105 active:scale-95 transition-all z-[100]"
+        className="absolute -right-4 top-9 hidden lg:flex h-8 w-8 items-center justify-center rounded-full border border-[#E9D5FF] bg-[#FAF5FF] shadow-sm text-[#5B2E7F] hover:bg-[#F3E8FF] hover:scale-105 active:scale-95 transition-all z-[100]"
         title={isExpanded ? "Collapse Sidebar" : "Expand Sidebar"}
       >
         {isExpanded ? <ChevronLeft size={16} strokeWidth={2.5} /> : <ChevronRight size={16} strokeWidth={2.5} />}
@@ -101,6 +102,7 @@ export default function Sidebar() {
                   <NavLink
                     key={item.to}
                     to={item.to}
+                    onClick={onClose}
                     title={!isExpanded ? item.label : undefined}
                     className={({ isActive }) =>
                       `flex items-center py-2.5 rounded-[10px] text-[13.5px] transition-all duration-150 group ${isExpanded ? 'gap-3.5 px-3' : 'justify-center px-0'} ${
@@ -134,6 +136,7 @@ export default function Sidebar() {
       <div className={`mt-8 pt-4 border-t border-slate-100 flex ${isExpanded ? 'items-center justify-between' : 'flex-col items-center justify-center gap-4'}`}>
         <Link
           to="/settings"
+          onClick={onClose}
           className={`flex items-center gap-2.5 min-w-0 rounded-[10px] transition-colors hover:bg-slate-50 py-1 ${isExpanded ? 'px-2 -ml-2' : 'justify-center'}`}
           title={!isExpanded ? 'Settings' : undefined}
         >
