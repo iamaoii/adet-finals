@@ -94,11 +94,13 @@ export default function App() {
       {showInstallBanner && (
         <div className="fixed top-4 left-4 right-4 md:left-auto md:right-4 md:w-[360px] bg-slate-900 text-white p-4 rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.18)] border border-slate-800 z-[9999] flex items-center justify-between gap-4 animate-slide-down">
           <div className="flex items-center gap-3">
-            <img
-              src={logoRightBg}
-              alt="InvoiceIQ Logo"
-              className="h-10 w-10 rounded-[10px] object-contain shrink-0 shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
-            />
+            <div className="bg-white p-1.5 rounded-[12px] shrink-0 flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.15)] w-10 h-10">
+              <img
+                src={logoRightBg}
+                alt="InvoiceIQ Logo"
+                className="h-full w-full object-contain"
+              />
+            </div>
             <div>
               <h4 className="text-[13px] font-bold tracking-tight text-white leading-tight">Install InvoiceIQ</h4>
               <p className="text-[11px] text-slate-400 font-light leading-normal mt-0.5">Add to your home screen for quick access</p>
