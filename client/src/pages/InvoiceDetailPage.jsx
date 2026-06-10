@@ -90,9 +90,9 @@ export default function InvoiceDetailPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-[#F8F9FA]">
+    <div className="flex-1 flex flex-col min-h-0 bg-[#F8F9FA]">
       {/* Top Standard Action Header Bar */}
-      <div className="relative z-50 flex flex-col md:flex-row md:items-center justify-between px-8 py-5 border-b border-[#EFF1F5] bg-white gap-4">
+      <div className="relative z-50 flex flex-col md:flex-row md:items-center justify-between px-4 sm:px-6 lg:px-8 py-5 border-b border-[#EFF1F5] bg-white gap-4">
         <div className="flex items-center gap-4">
           <Link
             to="/invoices"
@@ -153,9 +153,9 @@ export default function InvoiceDetailPage() {
       </div>
 
       {/* Page Panel Layout */}
-      <div className="p-8 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-y-auto">
         {/* Left Form/Data Panel */}
-        <div className="lg:col-span-7 bg-white border border-[#EFF1F5] rounded-[24px] p-8 shadow-[0_4px_24px_rgba(0,0,0,0.015)]">
+        <div className="lg:col-span-7 bg-white border border-[#EFF1F5] rounded-[24px] p-4 sm:p-6 lg:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.015)]">
           {editing ? (
             <form id="invoice-edit-form" onSubmit={handleSave} className="space-y-5">
               <h2 className="text-lg font-extrabold text-[#1E293B] mb-2">Edit Invoice Details</h2>
@@ -242,7 +242,7 @@ export default function InvoiceDetailPage() {
         </div>
 
         {/* Right Attachment Panel */}
-        <div className="lg:col-span-5 bg-white border border-[#EFF1F5] rounded-[24px] p-8 shadow-[0_4px_24px_rgba(0,0,0,0.015)] flex flex-col">
+        <div className="lg:col-span-5 bg-white border border-[#EFF1F5] rounded-[24px] p-4 sm:p-6 lg:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.015)] flex flex-col">
           <h2 className="text-lg font-extrabold text-[#1E293B] mb-5">Invoice Attachment</h2>
           {invoice.file_url ? (
             <div className="flex-1 flex flex-col justify-between">

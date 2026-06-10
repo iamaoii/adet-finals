@@ -41,12 +41,40 @@ export default function LoginPage() {
           LEFT PANE — Dark editorial / brand panel
       ═══════════════════════════════════════════════════ */}
       <div
-        className="w-full lg:w-1/2 p-12 lg:p-16 min-h-[600px] lg:min-h-screen relative flex flex-col justify-between overflow-hidden"
+        className="hidden lg:flex lg:w-1/2 p-12 lg:p-16 min-h-screen relative flex-col justify-between overflow-hidden"
         style={{
           backgroundColor: '#0D0D0D',
           backgroundImage: 'radial-gradient(ellipse 70% 55% at 80% 110%, rgba(90, 40, 130, 0.22) 0%, transparent 70%)',
         }}
       >
+        {/* Background Decorative Waves */}
+        <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.25]">
+          <svg className="w-full h-full" viewBox="0 0 500 800" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+            {/* Wave 1 */}
+            <path d="M-50,200 Q150,100 250,300 T600,400" stroke="url(#wave-line-1)" strokeWidth="2" fill="none" className="animate-pulse" style={{ animationDuration: '6s' }} />
+            {/* Wave 2 */}
+            <path d="M-100,250 Q100,350 300,200 T600,300" stroke="url(#wave-line-2)" strokeWidth="1.5" fill="none" className="animate-pulse" style={{ animationDuration: '8s' }} />
+            {/* Wave 3 */}
+            <path d="M-50,150 Q200,400 350,150 T550,250" stroke="url(#wave-line-3)" strokeWidth="1" fill="none" strokeDasharray="4 4" />
+            <defs>
+              <linearGradient id="wave-line-1" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#5B2E7F" />
+                <stop offset="50%" stopColor="#D946EF" />
+                <stop offset="100%" stopColor="#3B82F6" />
+              </linearGradient>
+              <linearGradient id="wave-line-2" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#2563EB" />
+                <stop offset="50%" stopColor="#8B5CF6" />
+                <stop offset="100%" stopColor="#EC4899" />
+              </linearGradient>
+              <linearGradient id="wave-line-3" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#D946EF" stopOpacity="0.5" />
+                <stop offset="100%" stopColor="#5B2E7F" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+
         {/* ── Top Logo ── */}
         <div className="flex items-center gap-4 z-10">
           <img
@@ -119,11 +147,25 @@ export default function LoginPage() {
       {/* ═══════════════════════════════════════════════════
           RIGHT PANE — Sign-in form
       ═══════════════════════════════════════════════════ */}
-      <div className="w-full lg:w-1/2 bg-white flex items-center justify-center p-12 lg:p-16 min-h-[580px] lg:min-h-screen relative">
-        <div className="w-full max-w-[400px] -mt-10 lg:-mt-14">
+      <div 
+        className="w-full lg:w-1/2 bg-[#F8F9FA] flex items-center justify-center p-6 sm:p-12 lg:p-16 min-h-screen relative overflow-hidden"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 10% 20%, rgba(91, 46, 127, 0.02) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.02) 0%, transparent 45%)',
+        }}
+      >
+        {/* Faint decorative waves in right pane background */}
+        <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.06]">
+          <svg className="w-full h-full" viewBox="0 0 500 800" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+            <path d="M-50,600 Q150,500 250,700 T600,800" stroke="#5B2E7F" strokeWidth="1.5" fill="none" />
+            <path d="M-100,650 Q100,750 300,600 T600,700" stroke="#3B82F6" strokeWidth="1" fill="none" />
+          </svg>
+        </div>
+
+        {/* Premium login card */}
+        <div className="w-full max-w-[440px] bg-white border border-slate-100 rounded-[24px] p-8 sm:p-10 shadow-[0_8px_30px_rgba(0,0,0,0.03)] relative z-10 backdrop-blur-sm">
           
           {/* Brand logo — horizontal, left-aligned on top of the heading */}
-          <div className="flex items-center gap-3.5 z-10 justify-start mb-10 lg:mb-12">
+          <div className="flex items-center gap-3.5 justify-center lg:justify-start mb-8 lg:mb-10">
             <img
               src={logoRightBg}
               alt="InvoiceIQ Icon"
@@ -138,7 +180,7 @@ export default function LoginPage() {
           </div>
 
           {/* Heading block — left-aligned */}
-          <div className="space-y-1 mb-6">
+          <div className="space-y-1 mb-6 text-center lg:text-left">
             <h1 className="font-serif font-bold text-slate-900 tracking-tight text-[30px]">
               Welcome Back
             </h1>
@@ -223,7 +265,7 @@ export default function LoginPage() {
           </form>
 
           {/* Register link */}
-          <p className="text-[12.5px] text-slate-400 font-light mt-5">
+          <p className="text-[12.5px] text-slate-400 font-light mt-5 text-center lg:text-left">
             Don&apos;t have an account?{' '}
             <Link to="/register" className="text-[#5B2E7F] font-semibold hover:underline">
               Register

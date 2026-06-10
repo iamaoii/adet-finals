@@ -76,28 +76,32 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-[#F8F9FA]">
+    <div className="flex-1 flex flex-col min-h-0 bg-[#F8F9FA]">
       
       {/* ── Figma Top Action Header Bar (Full Bleed) ── */}
-      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0 relative z-50">
+      <div className="bg-white border-b border-slate-100 px-4 sm:px-6 lg:px-8 py-4 flex flex-row items-center justify-between gap-4 shrink-0 relative z-50">
         <div>
-          <span className="text-[10px] tracking-wider uppercase font-bold text-slate-400 block mb-1">
+          <span className="hidden sm:block text-[10px] tracking-wider uppercase font-bold text-slate-400 mb-1">
             Documents
           </span>
           <h1 
-            className="text-slate-900 tracking-tight leading-none animate-fade-in"
-            style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '30px', fontWeight: 700 }}
+            className="text-slate-900 tracking-tight leading-none animate-fade-in text-xl sm:text-2xl lg:text-[30px]"
+            style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700 }}
           >
             Upload Invoice
           </h1>
+          <span className="sm:hidden text-[11px] font-semibold text-slate-400 block mt-1">
+            {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+          </span>
         </div>
         
         <div className="flex items-center gap-3">
-          <div className="bg-white border border-slate-200 rounded-[10px] h-9 px-3.5 text-[12.5px] font-semibold text-slate-600 flex items-center gap-2 shadow-sm">
+          {/* Calendar Select Badge */}
+          <div className="hidden sm:flex bg-white border border-slate-200 rounded-[10px] h-9 px-3.5 text-[12.5px] font-semibold text-slate-600 items-center gap-2 shadow-sm">
             <Calendar size={14} className="text-slate-600" />
             <span>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
           </div>
-          <NotificationButton />
+          <NotificationButton className="hidden lg:block" />
           <Link to="/upload" className="bg-[#5A2D72] hover:bg-[#4A245C] active:bg-[#3B1D4A] text-white text-[12.5px] font-semibold rounded-[10px] h-9 px-5 flex items-center justify-center gap-2.5 shadow-[0_1px_3px_rgba(90,45,114,0.15)] transition-all cursor-pointer select-none whitespace-nowrap">
             <Upload size={14} className="stroke-[2.5px] text-white" />
             <span>Upload Invoice</span>
@@ -106,7 +110,7 @@ export default function UploadPage() {
       </div>
 
       {/* ── Page Content ── */}
-      <div className="flex-1 p-8 overflow-y-auto">
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
         <div className="max-w-[1000px] mx-auto space-y-8">
           
           {/* Title Section */}
@@ -122,8 +126,8 @@ export default function UploadPage() {
           {/* Upload Dropzone Card */}
           <div
             {...getRootProps()}
-            className={`bg-white border border-slate-100/90 rounded-[20px] p-16 flex flex-col items-center justify-center shadow-[0_2px_12px_rgba(0,0,0,0.02)] cursor-pointer transition-all min-h-[360px]
-              ${isDragActive ? 'border-[#5A2D72] bg-[#5A2D72]/[0.02]' : 'hover:border-[#5A2D72]/30 hover:shadow-[0_4px_20px_rgba(0,0,0,0.04)]'}`}
+            className={`bg-white border border-slate-100/90 rounded-[20px] p-6 sm:p-12 lg:p-16 flex flex-col items-center justify-center shadow-[0_2px_12px_rgba(0,0,0,0.02)] cursor-pointer transition-all min-h-[360px]
+              \${isDragActive ? 'border-[#5A2D72] bg-[#5A2D72]/[0.02]' : 'hover:border-[#5A2D72]/30 hover:shadow-[0_4px_20px_rgba(0,0,0,0.04)]'}`}
           >
             <input {...getInputProps()} />
             
@@ -156,7 +160,7 @@ export default function UploadPage() {
                 <div className="w-[72px] h-[72px] bg-white border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.04)] rounded-[18px] flex items-center justify-center mb-7">
                   <Upload size={28} className="text-[#5A2D72] stroke-[2px]" />
                 </div>
-                <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif" }} className="text-[28px] font-bold text-[#5A2D72] mb-2 tracking-tight">
+                <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif" }} className="text-xl sm:text-2xl lg:text-[28px] font-bold text-[#5A2D72] mb-2 tracking-tight">
                   {isDragActive ? 'Drop invoice here' : 'Drop your invoice here'}
                 </h3>
                 <p className="text-[14.5px] font-medium text-slate-400">
@@ -171,12 +175,12 @@ export default function UploadPage() {
             <h2 className="text-slate-800 font-bold text-[15px] tracking-tight mb-5">Upload History</h2>
             
             <div className="overflow-x-auto rounded-[12px]">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse min-w-[500px]">
                 <thead>
                   <tr className="border-b border-slate-100 text-[11px] font-extrabold tracking-wider text-slate-400 uppercase">
-                    <th className="pb-3.5 font-bold">INVOICE #</th>
-                    <th className="pb-3.5 font-bold">SUPPLIER</th>
-                    <th className="pb-3.5 font-bold">DATE</th>
+                    <th className="pb-3.5 font-bold pr-4">INVOICE #</th>
+                    <th className="pb-3.5 font-bold pr-4">SUPPLIER</th>
+                    <th className="pb-3.5 font-bold pr-4">DATE</th>
                     <th className="pb-3.5 font-bold">STATUS</th>
                   </tr>
                 </thead>
@@ -192,9 +196,9 @@ export default function UploadPage() {
                   ) : (
                     history.map((h, i) => (
                       <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-4 font-bold text-slate-900">{h.invoice_number || '—'}</td>
-                        <td className="py-4 font-semibold text-slate-700">{h.supplier_name || '—'}</td>
-                        <td className="py-4 font-medium text-slate-500">
+                        <td className="py-4 font-bold text-slate-900 pr-4">{h.invoice_number || '—'}</td>
+                        <td className="py-4 font-semibold text-slate-700 pr-4">{h.supplier_name || '—'}</td>
+                        <td className="py-4 font-medium text-slate-500 pr-4">
                           {h.invoice_date ? new Date(h.invoice_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                         </td>
                         <td className={`py-4 font-bold capitalize ${getStatusColor(h.status)}`}>{h.status}</td>

@@ -48,7 +48,7 @@ const timeAgo = (dateStr) => {
   return `${diffDays} days ago`;
 };
 
-export default function NotificationButton() {
+export default function NotificationButton({ className = "" }) {
   const [open, setOpen]   = useState(false);
   const [notes, setNotes] = useState([]);
   const ref = useRef(null);
@@ -106,7 +106,7 @@ export default function NotificationButton() {
   };
 
   return (
-    <div className="relative" ref={ref}>
+    <div className={`relative ${className}`} ref={ref}>
       {/* Bell Button */}
       <button
         onClick={() => setOpen(!open)}

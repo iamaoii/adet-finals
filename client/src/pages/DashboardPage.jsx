@@ -201,31 +201,34 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen">
+    <div className="flex-1 flex flex-col min-h-0">
       
       {/* ── Figma Top Action Header Bar (Full Bleed) ── */}
-      <div className="bg-white border-b border-slate-100 px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0 relative z-50">
+      <div className="bg-white border-b border-slate-100 px-4 sm:px-6 lg:px-8 py-4 flex flex-row items-center justify-between gap-4 shrink-0 relative z-50">
         <div>
-          <span className="text-[10px] tracking-wider uppercase font-bold text-slate-400 block mb-1">
+          <span className="hidden sm:block text-[10px] tracking-wider uppercase font-bold text-slate-400 mb-1">
             Overview
           </span>
           <h1 
-            className="text-slate-900 tracking-tight leading-none animate-fade-in"
-            style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: '30px', fontWeight: 700 }}
+            className="text-slate-900 tracking-tight leading-none animate-fade-in text-xl sm:text-2xl lg:text-[30px]"
+            style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700 }}
           >
             Dashboard
           </h1>
+          <span className="sm:hidden text-[11px] font-semibold text-slate-400 block mt-1">
+            {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+          </span>
         </div>
 
         {/* Right Buttons group */}
         <div className="flex items-center gap-3">
           {/* Calendar Select Badge */}
-          <div className="bg-white border border-slate-200 rounded-[10px] h-9 px-3.5 text-[12.5px] font-semibold text-slate-600 flex items-center gap-2 shadow-sm">
+          <div className="hidden sm:flex bg-white border border-slate-200 rounded-[10px] h-9 px-3.5 text-[12.5px] font-semibold text-slate-600 items-center gap-2 shadow-sm">
             <Calendar size={14} className="text-slate-600" />
             <span>{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
           </div>
 
-          <NotificationButton />
+          <NotificationButton className="hidden lg:block" />
 
           {/* Purple Upload Action Button */}
           <Link
@@ -239,7 +242,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Figma Workspace Padded Body (Soft Off-White background) ── */}
-      <div className="flex-1 p-8 space-y-8 overflow-y-auto bg-[#F8F9FA]">
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 space-y-8 overflow-y-auto bg-[#F8F9FA]">
 
         {/* Stat cards grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
@@ -477,14 +480,14 @@ export default function DashboardPage() {
           </div>
 
           <div className="overflow-x-auto rounded-[12px]">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[650px]">
               <thead>
                 <tr className="border-b border-slate-100 text-[11px] font-extrabold tracking-wider text-slate-400 uppercase">
-                  <th className="pb-3.5 font-bold">INVOICE #</th>
-                  <th className="pb-3.5 font-bold">SUPPLIER</th>
-                  <th className="pb-3.5 font-bold">DATE</th>
-                  <th className="pb-3.5 font-bold">CATEGORY</th>
-                  <th className="pb-3.5 font-bold">AMOUNT</th>
+                  <th className="pb-3.5 font-bold pr-4">INVOICE #</th>
+                  <th className="pb-3.5 font-bold pr-4">SUPPLIER</th>
+                  <th className="pb-3.5 font-bold pr-4">DATE</th>
+                  <th className="pb-3.5 font-bold pr-4">CATEGORY</th>
+                  <th className="pb-3.5 font-bold pr-4">AMOUNT</th>
                   <th className="pb-3.5 font-bold">STATUS</th>
                 </tr>
               </thead>
@@ -500,13 +503,13 @@ export default function DashboardPage() {
                 ) : (
                   invoices.map((inv) => (
                     <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-3.5 font-bold text-slate-900">{inv.invoice_number || '—'}</td>
-                      <td className="py-3.5 font-medium text-slate-600">{inv.supplier_name || '—'}</td>
-                      <td className="py-3.5 font-light text-slate-400">
+                      <td className="py-3.5 font-bold text-slate-900 pr-4">{inv.invoice_number || '—'}</td>
+                      <td className="py-3.5 font-medium text-slate-600 pr-4">{inv.supplier_name || '—'}</td>
+                      <td className="py-3.5 font-light text-slate-400 pr-4">
                         {inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                       </td>
-                      <td className={`py-3.5 font-bold ${getCatColor(inv.category)}`}>{inv.category || 'Other'}</td>
-                      <td className="py-3.5 font-bold text-slate-900">{formatFull(inv.total_amount)}</td>
+                      <td className={`py-3.5 font-bold pr-4 ${getCatColor(inv.category)}`}>{inv.category || 'Other'}</td>
+                      <td className="py-3.5 font-bold text-slate-900 pr-4">{formatFull(inv.total_amount)}</td>
                       <td className={`py-3.5 font-bold capitalize ${getStatusColor(inv.status)}`}>{inv.status}</td>
                     </tr>
                   ))
