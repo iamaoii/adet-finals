@@ -17,7 +17,8 @@ import AlertsPage        from './pages/AlertsPage';
 import SettingsPage      from './pages/SettingsPage';
 import SuppliersPage     from './pages/SuppliersPage';
 
-import { X, Download } from 'lucide-react';
+import { X } from 'lucide-react';
+import logoRightBg from './assets/logo/logo_2.webp';
 
 export default function App() {
   const [installPrompt, setInstallPrompt] = useState(null);
@@ -91,11 +92,13 @@ export default function App() {
 
       {/* Floating PWA Install Banner */}
       {showInstallBanner && (
-        <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-[360px] bg-slate-900 text-white p-4 rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.18)] border border-slate-800 z-[9999] flex items-center justify-between gap-4 animate-slide-up">
+        <div className="fixed top-4 left-4 right-4 md:left-auto md:right-4 md:w-[360px] bg-slate-900 text-white p-4 rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.18)] border border-slate-800 z-[9999] flex items-center justify-between gap-4 animate-slide-down">
           <div className="flex items-center gap-3">
-            <div className="bg-[#5B2E7F] p-2.5 rounded-[10px] shrink-0 shadow-[0_2px_8px_rgba(91,46,127,0.3)]">
-              <Download size={16} className="text-white" />
-            </div>
+            <img
+              src={logoRightBg}
+              alt="InvoiceIQ Logo"
+              className="h-10 w-10 rounded-[10px] object-contain shrink-0 shadow-[0_2px_8px_rgba(0,0,0,0.15)]"
+            />
             <div>
               <h4 className="text-[13px] font-bold tracking-tight text-white leading-tight">Install InvoiceIQ</h4>
               <p className="text-[11px] text-slate-400 font-light leading-normal mt-0.5">Add to your home screen for quick access</p>
