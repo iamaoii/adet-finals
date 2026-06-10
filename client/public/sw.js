@@ -6,7 +6,7 @@ const ASSETS_TO_CACHE = [
   '/favicon/favicon.svg',
   '/favicon/favicon.ico',
   '/favicon/apple-touch-icon.png',
-  '/favicon/site.webmanifest',
+  '/favicon/manifest.json',
   '/favicon/web-app-manifest-192x192.png',
   '/favicon/web-app-manifest-512x512.png'
 ];
