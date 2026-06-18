@@ -124,20 +124,31 @@ export default function UploadPage() {
               </p>
             </div>
             
-            {/* Quick Test File Download Card */}
-            <a 
-              href="/invoice_sample.png" 
-              download="invoice_sample.png"
-              className="bg-[#FFFBEB] hover:bg-[#FEF3C7] border border-[#F59E0B]/30 rounded-[14px] p-3 flex items-center gap-3 transition-colors shadow-sm self-start sm:self-auto"
-            >
-              <div className="w-9 h-9 bg-white border border-[#F59E0B]/20 rounded-[10px] flex items-center justify-center shrink-0 shadow-sm">
-                <FileText size={16} className="text-[#D97706]" />
+            {/* Quick Test Files Download Box */}
+            <div className="bg-[#FFFBEB] border border-[#F59E0B]/30 rounded-[16px] p-3.5 flex flex-col gap-2.5 shadow-sm max-w-xs w-full sm:w-auto">
+              <div className="flex items-center gap-2">
+                <FileText size={15} className="text-[#D97706]" />
+                <span className="text-[12.5px] font-bold text-[#D97706]">Demo Sandbox Files</span>
               </div>
-              <div className="text-left">
-                <div className="text-[12px] font-bold text-[#D97706] leading-none mb-0.5">Need a test file?</div>
-                <div className="text-[10px] font-semibold text-slate-500">Download complete sample invoice</div>
+              <div className="flex flex-col gap-2">
+                <a 
+                  href="/invoice_sample.png" 
+                  download="invoice_sample.png"
+                  className="bg-white hover:bg-slate-50 border border-[#F59E0B]/20 rounded-[10px] py-1.5 px-3 flex items-center justify-between text-[11px] font-bold text-slate-700 transition-colors shadow-sm"
+                >
+                  <span>✓ Complete Invoice (Verified)</span>
+                  <span className="text-[9px] text-[#2D7A4F] bg-[#E6F4EA] px-1.5 py-0.5 rounded font-extrabold ml-2">Clean</span>
+                </a>
+                <a 
+                  href="/invoice_pending_sample.png" 
+                  download="invoice_pending_sample.png"
+                  className="bg-white hover:bg-slate-50 border border-[#F59E0B]/20 rounded-[10px] py-1.5 px-3 flex items-center justify-between text-[11px] font-bold text-slate-700 transition-colors shadow-sm"
+                >
+                  <span>✗ Missing Fields (Pending)</span>
+                  <span className="text-[9px] text-[#B7791F] bg-[#FFFBEB] px-1.5 py-0.5 rounded font-extrabold border border-[#E5C88A]/50 ml-2">Pending</span>
+                </a>
               </div>
-            </a>
+            </div>
           </div>
 
           {/* Upload Dropzone Card */}
