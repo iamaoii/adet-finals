@@ -114,41 +114,13 @@ export default function UploadPage() {
         <div className="max-w-[1000px] mx-auto space-y-8">
           
           {/* Title Section */}
-          <div className="px-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif" }} className="text-[28px] font-bold text-slate-900 tracking-tight mb-2">
-                Upload Invoice Or Receipt
-              </h2>
-              <p className="text-[14px] text-slate-400 font-medium">
-                AI-Powered OCR Extracts All Fields Automatically. Supported: JPG, PNG, PDF (Max 10 MB).
-              </p>
-            </div>
-            
-            {/* Quick Test Files Download Box */}
-            <div className="bg-[#FFFBEB] border border-[#F59E0B]/30 rounded-[16px] p-3.5 flex flex-col gap-2.5 shadow-sm max-w-xs w-full sm:w-auto">
-              <div className="flex items-center gap-2">
-                <FileText size={15} className="text-[#D97706]" />
-                <span className="text-[12.5px] font-bold text-[#D97706]">Demo Sandbox Files</span>
-              </div>
-              <div className="flex flex-col gap-2">
-                <a 
-                  href="/invoice_sample.png" 
-                  download="invoice_sample.png"
-                  className="bg-white hover:bg-slate-50 border border-[#F59E0B]/20 rounded-[10px] py-1.5 px-3 flex items-center justify-between text-[11px] font-bold text-slate-700 transition-colors shadow-sm"
-                >
-                  <span>✓ Complete Invoice (Verified)</span>
-                  <span className="text-[9px] text-[#2D7A4F] bg-[#E6F4EA] px-1.5 py-0.5 rounded font-extrabold ml-2">Clean</span>
-                </a>
-                <a 
-                  href="/invoice_pending_sample.png" 
-                  download="invoice_pending_sample.png"
-                  className="bg-white hover:bg-slate-50 border border-[#F59E0B]/20 rounded-[10px] py-1.5 px-3 flex items-center justify-between text-[11px] font-bold text-slate-700 transition-colors shadow-sm"
-                >
-                  <span>✗ Missing Fields (Pending)</span>
-                  <span className="text-[9px] text-[#B7791F] bg-[#FFFBEB] px-1.5 py-0.5 rounded font-extrabold border border-[#E5C88A]/50 ml-2">Pending</span>
-                </a>
-              </div>
-            </div>
+          <div className="px-1">
+            <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif" }} className="text-[28px] font-bold text-slate-900 tracking-tight mb-2">
+              Upload Invoice Or Receipt
+            </h2>
+            <p className="text-[14px] text-slate-400 font-medium">
+              AI-Powered OCR Extracts All Fields Automatically. Supported: JPG, PNG, PDF (Max 10 MB).
+            </p>
           </div>
 
           {/* Upload Dropzone Card */}

@@ -41,9 +41,10 @@ async function runOcrOnUrl(url) {
 function parseInvoiceFields(rawText) {
   const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
 
+  // LOOP BY PATTERN FIRST (Prioritize more specific patterns across the entire document first)
   const find = (patterns) => {
-    for (const line of lines) {
-      for (const pattern of patterns) {
+    for (const pattern of patterns) {
+      for (const line of lines) {
         const m = line.match(pattern);
         if (m?.[1]) return m[1].trim();
       }
@@ -51,8 +52,16 @@ function parseInvoiceFields(rawText) {
     return null;
   };
 
+  const formatDateLocal = (date) => {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
   // 1. Smart Invoice Number Parser
   const invoiceNumber = find([
+    /\b(INV-\d{4}-\d{3,4})\b/i,                                  // Match specific INV-YYYY-XXX shape first
     /invoice\s*(?:no\.?|number|#)[:\s]*([A-Z0-9\-]+)/i,          // Handles 'Invoice #INV-2026-089' or 'Invoice: INV-123'
     /inv\s*(?:no\.?|number|#)[:\s]*([A-Z0-9\-]+)/i,              // Handles 'INV-2026-089'
     /(?:no\.?|number|#)[:\s]*([A-Z0-9\-]{4,20})/i                // Fallback for general short alphanumeric IDs
@@ -68,7 +77,6 @@ function parseInvoiceFields(rawText) {
   ]);
 
   // Fallback: If no explicit tag, scan the header.
-  // We clean up common OCR mistakes like 'A ApexTe INVOICE' -> 'Apex Tech Solutions'
   if (!supplierName) {
     for (const line of lines) {
       if (/apex\s*tech/i.test(line)) {
@@ -95,11 +103,10 @@ function parseInvoiceFields(rawText) {
 
   if (rawDateStr) {
     try {
-      // Standardize spacing (e.g., 'May 20,2026' -> 'May 20, 2026')
       const sanitized = rawDateStr.replace(/,(\d)/, ', $1');
       const d = new Date(sanitized);
       if (!isNaN(d.getTime())) {
-        parsedDate = d.toISOString().split('T')[0];
+        parsedDate = formatDateLocal(d);
       }
     } catch (e) {}
   }
@@ -117,20 +124,54 @@ function parseInvoiceFields(rawText) {
       const sanitized = rawDueDateStr.replace(/,(\d)/, ', $1');
       const d = new Date(sanitized);
       if (!isNaN(d.getTime())) {
-        parsedDueDate = d.toISOString().split('T')[0];
+        parsedDueDate = formatDateLocal(d);
       }
     } catch (e) {}
+  }
+
+  // Fallback: If dates are split across columns, scan the full text for dates
+  const dateRegex = /\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b/g;
+  const allDates = [...rawText.matchAll(dateRegex)].map(m => m[0]);
+
+  if (allDates.length > 0) {
+    const parseSingleDate = (str) => {
+      try {
+        const d = new Date(str);
+        return !isNaN(d.getTime()) ? formatDateLocal(d) : null;
+      } catch (e) {
+        return null;
+      }
+    };
+
+    if (!parsedDate) {
+      parsedDate = parseSingleDate(allDates[0]);
+    }
+    if (!parsedDueDate && allDates.length > 1) {
+      parsedDueDate = parseSingleDate(allDates[1]);
+    }
   }
 
   // 4. Smart Total Amount Parser
   let parsedAmount = null;
   
-  // Try searching lines for Total Amount / PHP values
-  const rawAmountStr = find([
-    /(?:total\s*amount|total|amount due|balance due|grand total)[:\s]*(?:PHP|₱|\$)?[\s]*([\d,]+\.\d{2})/i,
-    /(?:total\s*amount|total|amount due|balance due|grand total)\s+(?:PHP|₱|\$)?[\s]*([\d,]+\.\d{2})/i,  // Handles 'TOTAL AMOUNT PHP 14,000.00'
+  // We search bottom-to-top first to get the grand total instead of line items or subtotal
+  const reversedLines = [...lines].reverse();
+  const findReversed = (patterns) => {
+    for (const pattern of patterns) {
+      for (const line of reversedLines) {
+        const m = line.match(pattern);
+        if (m?.[1]) return m[1].trim();
+      }
+    }
+    return null;
+  };
+
+  // Try searching lines for Total Amount / PHP values (with loose currency symbol matching to support OCR mismatches like 'P')
+  const rawAmountStr = findReversed([
+    /(?:total\s*amount|total|amount due|balance due|grand total)[:\s]*(?:[A-Z]{1,3}|₱|£|\$|P)?[\s]*([\d,]+\.\d{2})/i,
+    /(?:total\s*amount|total|amount due|balance due|grand total)\s+(?:[A-Z]{1,3}|₱|£|\$|P)?[\s]*([\d,]+\.\d{2})/i,  // Handles 'TOTAL AMOUNT PHP 14,000.00'
     /subtotal\s*\|\s*([\d,]+\.\d{2})/i,                                                                  // Fallback to subtotal
-    /(?:PHP|₱|\$)\s*([\d,]+\.\d{2})\s*$/im
+    /(?:[A-Z]{1,3}|₱|£|\$|P)\s*([\d,]+\.\d{2})\s*$/im
   ]);
 
   if (rawAmountStr) {
