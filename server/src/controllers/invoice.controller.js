@@ -190,7 +190,7 @@ export const uploadInvoice = async (req, res) => {
     `INSERT INTO invoices
        (user_id, file_url, file_public_id, raw_ocr_text,
         supplier_name, invoice_number, invoice_date, due_date, total_amount, category, status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending')
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')
      RETURNING *`,
     [
       req.user.id,
