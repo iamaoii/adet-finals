@@ -114,13 +114,30 @@ export default function UploadPage() {
         <div className="max-w-[1000px] mx-auto space-y-8">
           
           {/* Title Section */}
-          <div className="px-1">
-            <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif" }} className="text-[28px] font-bold text-slate-900 tracking-tight mb-2">
-              Upload Invoice Or Receipt
-            </h2>
-            <p className="text-[14px] text-slate-400 font-medium">
-              AI-Powered OCR Extracts All Fields Automatically. Supported: JPG, PNG, PDF (Max 10 MB).
-            </p>
+          <div className="px-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif" }} className="text-[28px] font-bold text-slate-900 tracking-tight mb-2">
+                Upload Invoice Or Receipt
+              </h2>
+              <p className="text-[14px] text-slate-400 font-medium">
+                AI-Powered OCR Extracts All Fields Automatically. Supported: JPG, PNG, PDF (Max 10 MB).
+              </p>
+            </div>
+            
+            {/* Quick Test File Download Card */}
+            <a 
+              href="/invoice_sample.png" 
+              download="invoice_sample.png"
+              className="bg-[#FFFBEB] hover:bg-[#FEF3C7] border border-[#F59E0B]/30 rounded-[14px] p-3 flex items-center gap-3 transition-colors shadow-sm self-start sm:self-auto"
+            >
+              <div className="w-9 h-9 bg-white border border-[#F59E0B]/20 rounded-[10px] flex items-center justify-center shrink-0 shadow-sm">
+                <FileText size={16} className="text-[#D97706]" />
+              </div>
+              <div className="text-left">
+                <div className="text-[12px] font-bold text-[#D97706] leading-none mb-0.5">Need a test file?</div>
+                <div className="text-[10px] font-semibold text-slate-500">Download complete sample invoice</div>
+              </div>
+            </a>
           </div>
 
           {/* Upload Dropzone Card */}
