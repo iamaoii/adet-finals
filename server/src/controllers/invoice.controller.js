@@ -104,6 +104,24 @@ function parseInvoiceFields(rawText) {
     } catch (e) {}
   }
 
+  // 3b. Smart Due Date Parser
+  let parsedDueDate = null;
+  const rawDueDateStr = find([
+    /(?:due\s*date|due\s*on|payable\s*by)[:\s]*(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,
+    /(?:due\s*date|due\s*on|payable\s*by)[:\s]*([A-Za-z]+ \d{1,2},?\s*\d{4})/i,
+    /(?:due\s*date|due\s*on|payable\s*by)[:\s]*(\d{1,2} [A-Za-z]+ \d{4})/i
+  ]);
+
+  if (rawDueDateStr) {
+    try {
+      const sanitized = rawDueDateStr.replace(/,(\d)/, ', $1');
+      const d = new Date(sanitized);
+      if (!isNaN(d.getTime())) {
+        parsedDueDate = d.toISOString().split('T')[0];
+      }
+    } catch (e) {}
+  }
+
   // 4. Smart Total Amount Parser
   let parsedAmount = null;
   
@@ -138,6 +156,7 @@ function parseInvoiceFields(rawText) {
     invoiceNumber,
     supplierName: supplierName || 'Unknown Supplier',
     invoiceDate: parsedDate,
+    dueDate: parsedDueDate,
     totalAmount: parsedAmount,
     category,
   };
@@ -170,8 +189,8 @@ export const uploadInvoice = async (req, res) => {
   const { rows } = await query(
     `INSERT INTO invoices
        (user_id, file_url, file_public_id, raw_ocr_text,
-        supplier_name, invoice_number, invoice_date, total_amount, category, status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending')
+        supplier_name, invoice_number, invoice_date, due_date, total_amount, category, status)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending')
      RETURNING *`,
     [
       req.user.id,
@@ -181,6 +200,7 @@ export const uploadInvoice = async (req, res) => {
       parsed.supplierName,
       parsed.invoiceNumber,
       parsed.invoiceDate,
+      parsed.dueDate,
       parsed.totalAmount,
       parsed.category,
     ]
